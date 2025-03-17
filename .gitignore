@@ -1,0 +1,19 @@
+# 의존성 디렉토리
+node_modules/
+
+# 환경 설정 파일
+.env
+.env.local
+.env.*.local
+
+# 로그 파일
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+
+# Netlify 로컬 개발 파일
+.netlify/ 
