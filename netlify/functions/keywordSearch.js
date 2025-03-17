@@ -6,18 +6,10 @@ const agent = new https.Agent({
   rejectUnauthorized: false
 });
 
-// API 모드 설정 (항상 naver 사용)
-const API_MODE = 'naver';
-
-// 네이버 API 키 설정 - 환경 변수에서 가져오거나 기본값 사용
+// 네이버 데이터랩 API 키 설정 - 환경 변수에서 가져오거나 기본값 사용
 // 실제 배포 시에는 Netlify 대시보드에서 환경 변수로 설정해야 합니다
-const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || 'kcUpxrk46rltNyD4mp5j';
-const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'qSKhJWoktJ';
-
-// 네이버 데이터랩 API 키 설정
-// 실제 배포 시에는 Netlify 대시보드에서 환경 변수로 설정해야 합니다
-const DATALAB_CLIENT_ID = process.env.DATALAB_CLIENT_ID || NAVER_CLIENT_ID;
-const DATALAB_CLIENT_SECRET = process.env.DATALAB_CLIENT_SECRET || NAVER_CLIENT_SECRET;
+const DATALAB_CLIENT_ID = process.env.DATALAB_CLIENT_ID || 'kcUpxrk46rltNyD4mp5j';
+const DATALAB_CLIENT_SECRET = process.env.DATALAB_CLIENT_SECRET || 'qSKhJWoktJ';
 
 exports.handler = async function(event, context) {
   // CORS 헤더 설정
@@ -65,7 +57,6 @@ exports.handler = async function(event, context) {
     }
 
     // API 키 확인
-    console.log(`네이버 API 키 확인 - Client ID: ${NAVER_CLIENT_ID.substring(0, 4)}... (${NAVER_CLIENT_ID.length}자), Client Secret: ${NAVER_CLIENT_SECRET.substring(0, 4)}... (${NAVER_CLIENT_SECRET.length}자)`);
     console.log(`데이터랩 API 키 확인 - Client ID: ${DATALAB_CLIENT_ID.substring(0, 4)}... (${DATALAB_CLIENT_ID.length}자)`);
 
     // 결과를 저장할 배열
@@ -74,10 +65,20 @@ exports.handler = async function(event, context) {
     // 각 키워드에 대해 API 호출
     for (const keyword of keywords) {
       try {
-        console.log(`키워드 "${keyword}" 처리 시작 (API 모드: ${API_MODE})`);
+        console.log(`키워드 "${keyword}" 처리 시작`);
         
-        // 네이버 API 사용
-        await processWithNaverAPI(keyword, results);
+        // 네이버 데이터랩 API로 검색량 데이터 가져오기
+        const searchVolumeData = await getSearchVolumeFromDataLab(keyword);
+        
+        // 결과 배열에 추가
+        results.push({
+          keyword: keyword,
+          total: searchVolumeData.total,
+          pc: searchVolumeData.pc,
+          mobile: searchVolumeData.mobile
+        });
+        
+        console.log(`키워드 "${keyword}" 처리 완료: 총 ${searchVolumeData.total}회 (PC: ${searchVolumeData.pc}, 모바일: ${searchVolumeData.mobile})`);
         
         // API 호출 간 딜레이
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -113,33 +114,6 @@ exports.handler = async function(event, context) {
     };
   }
 };
-
-// 네이버 API를 사용하여 키워드 처리
-async function processWithNaverAPI(keyword, results) {
-  try {
-    // 1. 네이버 데이터랩 API로 검색량 데이터 가져오기
-    const searchVolumeData = await getSearchVolumeFromDataLab(keyword);
-    
-    // 2. 네이버 검색 API로 추가 데이터 가져오기
-    const additionalData = await getAdditionalDataFromSearchAPI(keyword);
-    
-    // 3. 데이터 결합
-    const combinedData = {
-      keyword: keyword,
-      ...searchVolumeData,
-      ...additionalData
-    };
-    
-    // 결과 배열에 추가
-    results.push(combinedData);
-    
-    console.log(`키워드 "${keyword}" 처리 완료:`, JSON.stringify(combinedData).substring(0, 200) + '...');
-    
-  } catch (error) {
-    console.error(`네이버 API 처리 중 오류 발생:`, error);
-    throw error; // 오류를 상위 함수로 전달
-  }
-}
 
 // 네이버 데이터랩 API를 사용하여 검색량 데이터 가져오기
 async function getSearchVolumeFromDataLab(keyword) {
@@ -261,20 +235,10 @@ async function getSearchVolumeFromDataLab(keyword) {
     const mobileSearches = convertRatioToVolume(mobileRatio, keywordPopularityFactor, daysInLastMonth);
     const total = pcSearches + mobileSearches;
     
-    // 클릭율 및 클릭수 계산
-    const pcClickRate = Math.floor(70 + Math.random() * 20);
-    const mobileClickRate = Math.floor(60 + Math.random() * 20);
-    const pcClick = Math.floor(pcSearches * (pcClickRate / 100));
-    const mobileClick = Math.floor(mobileSearches * (mobileClickRate / 100));
-    
     return {
-      pc: pcSearches,
-      mobile: mobileSearches,
       total: total,
-      pcClick: pcClick,
-      mobileClick: mobileClick,
-      pcClickRate: `${pcClickRate}%`,
-      mobileClickRate: `${mobileClickRate}%`
+      pc: pcSearches,
+      mobile: mobileSearches
     };
     
   } catch (error) {
@@ -340,199 +304,9 @@ function estimateSearchVolume(keyword) {
   const pcSearches = Math.floor(totalVolume * pcRatio);
   const mobileSearches = Math.floor(totalVolume * mobileRatio);
   
-  // 클릭율 및 클릭수 계산
-  const pcClickRate = Math.floor(70 + Math.random() * 20);
-  const mobileClickRate = Math.floor(60 + Math.random() * 20);
-  const pcClick = Math.floor(pcSearches * (pcClickRate / 100));
-  const mobileClick = Math.floor(mobileSearches * (mobileClickRate / 100));
-  
   return {
-    pc: pcSearches,
-    mobile: mobileSearches,
     total: pcSearches + mobileSearches,
-    pcClick: pcClick,
-    mobileClick: mobileClick,
-    pcClickRate: `${pcClickRate}%`,
-    mobileClickRate: `${mobileClickRate}%`
+    pc: pcSearches,
+    mobile: mobileSearches
   };
-}
-
-// 네이버 검색 API를 사용하여 추가 데이터 가져오기
-async function getAdditionalDataFromSearchAPI(keyword) {
-  // 네이버 API 호출을 위한 헤더 설정
-  const naverHeaders = {
-    'X-Naver-Client-Id': NAVER_CLIENT_ID,
-    'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-  };
-
-  try {
-    // 네이버 검색 API 호출 (웹 문서, 블로그, 쇼핑 검색)
-    const webSearchUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=10`;
-    const blogSearchUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`;
-    const shopSearchUrl = `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(keyword)}&display=10`;
-    
-    console.log(`네이버 웹 검색 API 호출: ${webSearchUrl}`);
-    
-    // 웹 검색 결과 가져오기
-    const webResponse = await fetch(webSearchUrl, {
-      method: 'GET',
-      headers: naverHeaders,
-      agent: agent // SSL 인증서 검증 비활성화
-    });
-    
-    // 블로그 검색 결과 가져오기
-    const blogResponse = await fetch(blogSearchUrl, {
-      method: 'GET',
-      headers: naverHeaders,
-      agent: agent // SSL 인증서 검증 비활성화
-    });
-    
-    // 쇼핑 검색 결과 가져오기
-    const shopResponse = await fetch(shopSearchUrl, {
-      method: 'GET',
-      headers: naverHeaders,
-      agent: agent // SSL 인증서 검증 비활성화
-    });
-    
-    // API 응답 상태 확인
-    if (!webResponse.ok || !blogResponse.ok || !shopResponse.ok) {
-      console.error(`웹 검색 응답 상태: ${webResponse.status}, ${webResponse.statusText}`);
-      console.error(`블로그 검색 응답 상태: ${blogResponse.status}, ${blogResponse.statusText}`);
-      console.error(`쇼핑 검색 응답 상태: ${shopResponse.status}, ${shopResponse.statusText}`);
-      
-      // 응답 본문 확인 시도
-      let webErrorText = '';
-      let blogErrorText = '';
-      let shopErrorText = '';
-      
-      try {
-        webErrorText = await webResponse.text();
-        blogErrorText = await blogResponse.text();
-        shopErrorText = await shopResponse.text();
-        console.error('웹 검색 오류 응답:', webErrorText);
-        console.error('블로그 검색 오류 응답:', blogErrorText);
-        console.error('쇼핑 검색 오류 응답:', shopErrorText);
-      } catch (e) {
-        console.error('응답 본문 읽기 실패:', e);
-      }
-      
-      // 401 오류인 경우 API 키 문제일 가능성이 높음
-      if (webResponse.status === 401 || blogResponse.status === 401 || shopResponse.status === 401) {
-        throw new Error(`네이버 API 인증 실패 (401): API 키가 유효하지 않거나 만료되었습니다.`);
-      }
-      
-      // 검색 API 호출 실패 시 추정 데이터 사용
-      return estimateAdditionalData(keyword);
-    }
-    
-    const webData = await webResponse.json();
-    const blogData = await blogResponse.json();
-    const shopData = await shopResponse.json();
-    
-    // 검색 결과에서 데이터 추출
-    const webTotal = webData.total || 0;
-    const blogTotal = blogData.total || 0;
-    
-    // 쇼핑 카테고리 추출
-    let shopCategory = '일반';
-    if (shopData.items && shopData.items.length > 0) {
-      // 첫 번째 쇼핑 아이템의 카테고리 사용
-      const categories = shopData.items.map(item => item.category1);
-      // 가장 많이 등장하는 카테고리 찾기
-      const categoryCounts = {};
-      categories.forEach(cat => {
-        if (cat) {
-          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-        }
-      });
-      
-      let maxCount = 0;
-      for (const cat in categoryCounts) {
-        if (categoryCounts[cat] > maxCount) {
-          maxCount = categoryCounts[cat];
-          shopCategory = cat;
-        }
-      }
-    }
-    
-    // 경쟁 정도 및 광고 노출 수 계산
-    const competition = getCompetition(webTotal);
-    let avgAdCount = 0;
-    
-    switch (competition) {
-      case '매우 낮음':
-        avgAdCount = Math.floor(Math.random() * 3) + 1;
-        break;
-      case '낮음':
-        avgAdCount = Math.floor(Math.random() * 5) + 3;
-        break;
-      case '보통':
-        avgAdCount = Math.floor(Math.random() * 7) + 5;
-        break;
-      case '높음':
-        avgAdCount = Math.floor(Math.random() * 10) + 7;
-        break;
-      case '매우 높음':
-        avgAdCount = Math.floor(Math.random() * 15) + 10;
-        break;
-    }
-    
-    return {
-      monthBlog: blogTotal,
-      blogSaturation: getBlogSaturation(blogTotal),
-      shopCategory: shopCategory,
-      competition: competition,
-      avgAdCount: avgAdCount
-    };
-    
-  } catch (error) {
-    console.error(`네이버 검색 API 처리 중 오류 발생:`, error);
-    // 오류 발생 시 추정 데이터 사용
-    return estimateAdditionalData(keyword);
-  }
-}
-
-// 추가 데이터 추정 함수 (검색 API 호출 실패 시 사용)
-function estimateAdditionalData(keyword) {
-  // 블로그 발행량 추정
-  const blogCount = Math.floor(Math.random() * 5000) + 100;
-  
-  return {
-    monthBlog: blogCount,
-    blogSaturation: getBlogSaturation(blogCount),
-    shopCategory: '일반',
-    competition: getCompetitionByKeyword(keyword),
-    avgAdCount: Math.floor(Math.random() * 10) + 1
-  };
-}
-
-// 키워드 특성에 따른 경쟁 정도 추정
-function getCompetitionByKeyword(keyword) {
-  // 키워드 길이가 짧을수록 경쟁이 치열한 경향
-  if (keyword.length <= 2) return '매우 높음';
-  if (keyword.length <= 4) return '높음';
-  if (keyword.length <= 6) return '보통';
-  if (keyword.length <= 10) return '낮음';
-  return '매우 낮음';
-}
-
-// 블로그 포화도 계산 함수
-function getBlogSaturation(blogCount) {
-  if (blogCount < 500) return '매우 낮음';
-  if (blogCount < 2000) return '낮음';
-  if (blogCount < 10000) return '보통';
-  if (blogCount < 50000) return '높음';
-  return '매우 높음';
-}
-
-// 경쟁 정도 계산 함수
-function getCompetition(webTotal) {
-  if (webTotal < 5000) return '매우 낮음';
-  if (webTotal < 20000) return '낮음';
-  if (webTotal < 100000) return '보통';
-  if (webTotal < 500000) return '높음';
-  return '매우 높음';
 } 
