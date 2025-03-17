@@ -327,7 +327,10 @@
               dataType: "JSON",
               data: {
                 'keyword': keyword,
-                'time': currentTime
+                'time': currentTime,
+                'device': 'pc',
+                'auth': 'mapia',
+                'source': 'direct'
               },
               success: function(response) {
                 console.log(`키워드 ${keyword} 응답:`, response);
@@ -392,7 +395,10 @@
                       data: {
                         'keyword': result.keyword,
                         'totalSum': total,
-                        'time': new Date().getTime()
+                        'time': new Date().getTime(),
+                        'device': 'pc',
+                        'auth': 'mapia',
+                        'source': 'direct'
                       },
                       success: function(secondResponse) {
                         console.log(`키워드 ${result.keyword} 두 번째 응답:`, secondResponse);

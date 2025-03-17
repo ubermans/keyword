@@ -53,7 +53,7 @@ exports.handler = async function(event, context) {
       try {
         const currentTime = new Date().getTime();
         // 첫 번째 API 호출 (totalSum 없이)
-        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`;
+        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}&device=pc&auth=mapia&source=direct`;
         
         console.log(`첫 번째 API 호출: ${apiUrl}`);
         
@@ -90,7 +90,7 @@ exports.handler = async function(event, context) {
         // 검색량이 있으면 두 번째 API 호출
         if (total > 0) {
           // 두 번째 API 호출 (totalSum 포함)
-          const secondApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=${total}&time=${new Date().getTime()}`;
+          const secondApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=${total}&time=${new Date().getTime()}&device=pc&auth=mapia&source=direct`;
           
           console.log(`두 번째 API 호출: ${secondApiUrl}`);
           
