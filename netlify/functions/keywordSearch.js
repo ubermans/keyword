@@ -1,4 +1,10 @@
 const fetch = require('node-fetch');
+const https = require('https');
+
+// SSL 인증서 검증을 비활성화하는 에이전트 생성
+const agent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 exports.handler = async function(event, context) {
   // CORS 헤더 설정
@@ -56,27 +62,24 @@ exports.handler = async function(event, context) {
       'Referer': 'https://mapia.net/',
       'Origin': 'https://mapia.net',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'X-Requested-With': 'XMLHttpRequest',
-      'sec-ch-ua': '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"'
+      'X-Requested-With': 'XMLHttpRequest'
     };
 
     // 각 키워드에 대해 API 호출
     for (const keyword of keywords) {
       try {
         console.log(`키워드 "${keyword}" 처리 시작`);
-        
-        // 마피아넷 사이트에서 사용하는 방식으로 API 호출
-        // 1. 먼저 검색량 조회 API 호출
         const currentTime = new Date().getTime();
-        const apiUrl = `https://api.mapia.net/keyword/search/volume?keyword=${encodeURIComponent(keyword)}&_=${currentTime}`;
         
-        console.log(`검색량 조회 API 호출: ${apiUrl}`);
+        // 원래 API 호출 방식으로 돌아가기 (SSL 검증 비활성화 옵션 추가)
+        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}&device=pc&auth=mapia&source=direct&ver=1.0&_=${currentTime}`;
+        
+        console.log(`첫 번째 API 호출: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           method: 'GET',
-          headers: apiHeaders
+          headers: apiHeaders,
+          agent: agent // SSL 검증 비활성화
         });
 
         if (!response.ok) {
@@ -84,7 +87,7 @@ exports.handler = async function(event, context) {
         }
 
         const data = await response.json();
-        console.log(`검색량 조회 API 응답:`, data);
+        console.log(`첫 번째 API 응답:`, data);
         
         // 응답 상태 확인
         if (!data || data.status === false) {
@@ -96,54 +99,56 @@ exports.handler = async function(event, context) {
           continue;
         }
         
-        // 검색량 추출
+        // 첫 번째 API 응답에서 검색량 추출
         let pcSearches = 0;
         let mobileSearches = 0;
         let total = 0;
         
-        if (data.data) {
-          pcSearches = data.data.monthlyPcQcCnt || 0;
-          mobileSearches = data.data.monthlyMobileQcCnt || 0;
-          total = data.data.monthlyTotalQcCnt || 0;
+        if (data.result) {
+          pcSearches = data.result.pcSearches || 0;
+          mobileSearches = data.result.mobileSearches || 0;
+        } else if (data.data) {
+          pcSearches = data.data.pcSearches || 0;
+          mobileSearches = data.data.mobileSearches || 0;
         }
         
+        total = parseInt(pcSearches) + parseInt(mobileSearches);
         console.log(`키워드 "${keyword}" 검색량 - PC: ${pcSearches}, Mobile: ${mobileSearches}, 합계: ${total}`);
         
-        // 검색량이 있으면 추가 정보 조회 API 호출
+        // 검색량이 있으면 두 번째 API 호출
         if (total > 0) {
-          // 2. 추가 정보 조회 API 호출
+          // 두 번째 API 호출 (totalSum 포함)
           const newTime = new Date().getTime();
-          const secondApiUrl = `https://api.mapia.net/keyword/search/info?keyword=${encodeURIComponent(keyword)}&_=${newTime}`;
+          const secondApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=${total}&time=${newTime}&device=pc&auth=mapia&source=direct&ver=1.0&_=${newTime}`;
           
-          console.log(`추가 정보 조회 API 호출: ${secondApiUrl}`);
+          console.log(`두 번째 API 호출: ${secondApiUrl}`);
           
           const secondResponse = await fetch(secondApiUrl, {
             method: 'GET',
-            headers: apiHeaders
+            headers: apiHeaders,
+            agent: agent // SSL 검증 비활성화
           });
           
           if (secondResponse.ok) {
             const secondData = await secondResponse.json();
-            console.log(`추가 정보 조회 API 응답:`, secondData);
+            console.log(`두 번째 API 응답:`, secondData);
             
-            // 추가 정보 조회 API 응답이 성공적이면 해당 데이터 사용
-            if (secondData && secondData.status && secondData.data) {
-              const info = secondData.data;
-              
+            // 두 번째 API 응답이 성공적이면 해당 데이터 사용
+            if (secondData && secondData.status && secondData.result) {
               results.push({
                 keyword: keyword,
-                pc: pcSearches,
-                mobile: mobileSearches,
+                pc: secondData.result.pcSearches || pcSearches,
+                mobile: secondData.result.mobileSearches || mobileSearches,
                 total: total,
-                monthBlog: info.blogPostCount || 0,
-                blogSaturation: info.blogSaturation || '-',
-                shopCategory: info.category || '-',
-                pcClick: info.pcClickCnt || 0,
-                mobileClick: info.mobileClickCnt || 0,
-                pcClickRate: info.pcClickRate || '0%',
-                mobileClickRate: info.mobileClickRate || '0%',
-                competition: info.competition || '-',
-                avgAdCount: info.avgAdCnt || 0
+                monthBlog: secondData.result.monthlyBlogPosts || 0,
+                blogSaturation: secondData.result.blogSaturation || '-',
+                shopCategory: secondData.result.shopCategory || '-',
+                pcClick: secondData.result.pcClicks || 0,
+                mobileClick: secondData.result.mobileClicks || 0,
+                pcClickRate: secondData.result.pcClickRate || '0%',
+                mobileClickRate: secondData.result.mobileClickRate || '0%',
+                competition: secondData.result.competition || '-',
+                avgAdCount: secondData.result.avgAdExposure || 0
               });
               
               // 다음 키워드로 진행
@@ -152,7 +157,7 @@ exports.handler = async function(event, context) {
           }
         }
         
-        // 추가 정보 조회 API 호출이 실패하거나 검색량이 없는 경우, 기본 결과 사용
+        // 두 번째 API 호출이 실패하거나 검색량이 없는 경우, 첫 번째 결과 사용
         if (total > 0) {
           results.push({
             keyword: keyword,
