@@ -150,10 +150,18 @@ async function getSearchVolumeFromDataLab(keyword) {
     'Content-Type': 'application/json'
   };
   
-  // 현재 날짜 기준으로 지난 30일 기간 설정
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
+  // 저번 달(이전 월) 전체 기간 설정
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11 (0: 1월, 11: 12월)
+  const currentYear = now.getFullYear();
+  
+  // 저번 달의 연도와 월 계산
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1; // 이전 월
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear; // 이전 월의 연도
+  
+  // 저번 달의 시작일과 마지막 일 계산
+  const startDate = new Date(lastMonthYear, lastMonth, 1); // 이전 월의 1일
+  const endDate = new Date(lastMonthYear, currentMonth, 0); // 이전 월의 마지막 날
   
   const formatDate = (date) => {
     const year = date.getFullYear();
@@ -161,6 +169,9 @@ async function getSearchVolumeFromDataLab(keyword) {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+  
+  // 저번 달 기간 로그 출력
+  console.log(`저번 달 기간: ${formatDate(startDate)} ~ ${formatDate(endDate)}`);
   
   // 데이터랩 API 요청 본문
   const requestBody = {
@@ -236,12 +247,18 @@ async function getSearchVolumeFromDataLab(keyword) {
     
     // 데이터랩 결과에서 검색량 추출
     // 데이터랩은 상대적인 검색 비율을 제공하므로 실제 검색량으로 변환 필요
-    const pcRatio = calculateAverageRatio(pcData);
-    const mobileRatio = calculateAverageRatio(mobileData);
+    const pcRatio = calculateTotalRatio(pcData);
+    const mobileRatio = calculateTotalRatio(mobileData);
     
     // 비율을 실제 검색량으로 변환 (추정)
-    const pcSearches = convertRatioToVolume(pcRatio);
-    const mobileSearches = convertRatioToVolume(mobileRatio);
+    // 키워드 인기도에 따른 기본 검색량 계수 적용
+    const keywordPopularityFactor = getKeywordPopularityFactor(keyword);
+    
+    // 저번 달의 일수를 고려하여 검색량 계산
+    const daysInLastMonth = endDate.getDate();
+    
+    const pcSearches = convertRatioToVolume(pcRatio, keywordPopularityFactor, daysInLastMonth);
+    const mobileSearches = convertRatioToVolume(mobileRatio, keywordPopularityFactor, daysInLastMonth);
     const total = pcSearches + mobileSearches;
     
     // 클릭율 및 클릭수 계산
@@ -267,32 +284,50 @@ async function getSearchVolumeFromDataLab(keyword) {
   }
 }
 
-// 데이터랩 결과에서 평균 비율 계산
-function calculateAverageRatio(data) {
+// 데이터랩 결과에서 총 비율 계산 (모든 일자의 비율 합산)
+function calculateTotalRatio(data) {
   if (!data.results || data.results.length === 0 || !data.results[0].data || data.results[0].data.length === 0) {
     return 0;
   }
   
-  const ratios = data.results[0].data.map(item => item.ratio);
-  const sum = ratios.reduce((acc, ratio) => acc + ratio, 0);
-  return sum / ratios.length;
+  // 모든 일자의 비율 합산
+  return data.results[0].data.reduce((acc, item) => acc + item.ratio, 0);
+}
+
+// 키워드 인기도에 따른 계수 결정
+function getKeywordPopularityFactor(keyword) {
+  // 키워드 길이가 짧을수록 인기 키워드일 가능성이 높음
+  if (keyword.length <= 2) return 1000; // 매우 인기 있는 키워드
+  if (keyword.length <= 4) return 500;  // 인기 있는 키워드
+  if (keyword.length <= 6) return 200;  // 보통 인기도의 키워드
+  if (keyword.length <= 10) return 100; // 낮은 인기도의 키워드
+  return 50; // 매우 낮은 인기도의 키워드
 }
 
 // 비율을 검색량으로 변환 (추정)
-function convertRatioToVolume(ratio) {
-  // 비율 0~100을 실제 검색량으로 변환하는 추정 공식
-  // 이 공식은 실제 데이터에 맞게 조정 필요
+function convertRatioToVolume(ratio, popularityFactor, daysInMonth) {
+  // 비율이 0이면 검색량도 0
   if (ratio === 0) return 0;
   
-  // 비율이 낮을수록 검색량도 적음, 비율이 높을수록 검색량이 많음
-  // 비율 1 = 약 1,000회 검색으로 추정
-  return Math.floor(ratio * 1000);
+  // 비율, 인기도 계수, 일수를 고려한 검색량 계산
+  // 비율이 높을수록, 인기도가 높을수록, 일수가 많을수록 검색량이 많아짐
+  const baseVolume = ratio * popularityFactor;
+  
+  // 일별 평균 비율을 구한 후 월간 검색량으로 변환
+  const dailyAverage = baseVolume / daysInMonth;
+  const monthlyVolume = dailyAverage * daysInMonth;
+  
+  // 최소값과 최대값 설정
+  return Math.max(10, Math.min(Math.floor(monthlyVolume), 1000000));
 }
 
 // 검색량 추정 함수 (데이터랩 API 호출 실패 시 사용)
 function estimateSearchVolume(keyword) {
-  // 키워드 길이에 따른 기본 검색량 추정
-  const baseVolume = Math.max(1000, 10000 - keyword.length * 500);
+  // 키워드 길이와 특성에 따른 기본 검색량 추정
+  const popularityFactor = getKeywordPopularityFactor(keyword);
+  
+  // 기본 검색량 계산 (인기도 계수에 기반)
+  const baseVolume = popularityFactor * 20;
   
   // 랜덤 변동 추가 (±30%)
   const variation = baseVolume * 0.3;
