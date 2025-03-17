@@ -314,7 +314,7 @@
         
         // API 호출
         $.ajax({
-          url: '/.netlify/functions/keywordSearch',
+          url: '/api/keywordSearch',
           method: 'POST',
           contentType: 'application/json',
           data: JSON.stringify({ keywords }),
