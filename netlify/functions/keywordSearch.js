@@ -6,10 +6,10 @@ const agent = new https.Agent({
   rejectUnauthorized: false
 });
 
-// 네이버 데이터랩 API 키 설정 - 환경 변수에서 가져오거나 기본값 사용
+// 네이버 API 키 설정 - 환경 변수에서 가져오거나 기본값 사용
 // 실제 배포 시에는 Netlify 대시보드에서 환경 변수로 설정해야 합니다
-const DATALAB_CLIENT_ID = process.env.DATALAB_CLIENT_ID || 'kcUpxrk46rltNyD4mp5j';
-const DATALAB_CLIENT_SECRET = process.env.DATALAB_CLIENT_SECRET || 'qSKhJWoktJ';
+const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || 'kcUpxrk46rltNyD4mp5j';
+const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'qSKhJWoktJ';
 
 exports.handler = async function(event, context) {
   // CORS 헤더 설정
@@ -57,7 +57,7 @@ exports.handler = async function(event, context) {
     }
 
     // API 키 확인
-    console.log(`데이터랩 API 키 확인 - Client ID: ${DATALAB_CLIENT_ID.substring(0, 4)}... (${DATALAB_CLIENT_ID.length}자)`);
+    console.log(`네이버 API 키 확인 - Client ID: ${NAVER_CLIENT_ID.substring(0, 4)}... (${NAVER_CLIENT_ID.length}자)`);
 
     // 결과를 저장할 배열
     const results = [];
@@ -67,8 +67,8 @@ exports.handler = async function(event, context) {
       try {
         console.log(`키워드 "${keyword}" 처리 시작`);
         
-        // 네이버 데이터랩 API로 검색량 데이터 가져오기
-        const searchVolumeData = await getSearchVolumeFromDataLab(keyword);
+        // 네이버 검색 API로 검색량 데이터 가져오기
+        const searchVolumeData = await getSearchVolumeFromNaver(keyword);
         
         // 결과 배열에 추가
         results.push({
@@ -115,28 +115,20 @@ exports.handler = async function(event, context) {
   }
 };
 
-// 네이버 데이터랩 API를 사용하여 검색량 데이터 가져오기
-async function getSearchVolumeFromDataLab(keyword) {
-  // 데이터랩 API 호출을 위한 헤더 설정
-  const datalabHeaders = {
-    'X-Naver-Client-Id': DATALAB_CLIENT_ID,
-    'X-Naver-Client-Secret': DATALAB_CLIENT_SECRET,
-    'Content-Type': 'application/json'
+// 네이버 검색 API를 사용하여 검색량 데이터 가져오기
+async function getSearchVolumeFromNaver(keyword) {
+  // 네이버 검색 API 호출을 위한 헤더 설정
+  const naverHeaders = {
+    'X-Naver-Client-Id': NAVER_CLIENT_ID,
+    'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
   };
   
-  // 저번 달(이전 월) 전체 기간 설정
-  const now = new Date();
-  const currentMonth = now.getMonth(); // 0-11 (0: 1월, 11: 12월)
-  const currentYear = now.getFullYear();
+  // 금일을 제외한 최근 한 달 기간 계산
+  const today = new Date();
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setDate(today.getDate() - 30);
   
-  // 저번 달의 연도와 월 계산
-  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1; // 이전 월
-  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear; // 이전 월의 연도
-  
-  // 저번 달의 시작일과 마지막 일 계산
-  const startDate = new Date(lastMonthYear, lastMonth, 1); // 이전 월의 1일
-  const endDate = new Date(lastMonthYear, currentMonth, 0); // 이전 월의 마지막 날
-  
+  // 날짜 형식 변환 (YYYY-MM-DD)
   const formatDate = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -144,169 +136,79 @@ async function getSearchVolumeFromDataLab(keyword) {
     return `${year}-${month}-${day}`;
   };
   
-  // 저번 달 기간 로그 출력
-  console.log(`저번 달 기간: ${formatDate(startDate)} ~ ${formatDate(endDate)}`);
+  const startDate = formatDate(oneMonthAgo);
+  const endDate = formatDate(new Date(today.setDate(today.getDate() - 1))); // 금일 제외
   
-  // 데이터랩 API 요청 본문
-  const requestBody = {
-    startDate: formatDate(startDate),
-    endDate: formatDate(endDate),
-    timeUnit: 'date',
-    keywordGroups: [
-      {
-        groupName: keyword,
-        keywords: [keyword]
-      }
-    ],
-    device: 'pc',
-    ages: [],
-    gender: ''
-  };
-  
-  console.log(`데이터랩 API 호출 (PC): ${JSON.stringify(requestBody).substring(0, 200)}...`);
+  console.log(`검색 기간: ${startDate} ~ ${endDate} (금일 제외 최근 30일)`);
   
   try {
-    // PC 검색량 데이터 가져오기
-    const pcResponse = await fetch('https://openapi.naver.com/v1/datalab/search', {
-      method: 'POST',
-      headers: datalabHeaders,
-      body: JSON.stringify(requestBody),
+    // 웹 검색 결과 가져오기
+    const webSearchUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=1`;
+    const webResponse = await fetch(webSearchUrl, {
+      method: 'GET',
+      headers: naverHeaders,
       agent: agent // SSL 인증서 검증 비활성화
     });
     
-    // 모바일 검색량을 위해 device 변경
-    requestBody.device = 'mobile';
-    
-    // 모바일 검색량 데이터 가져오기
-    const mobileResponse = await fetch('https://openapi.naver.com/v1/datalab/search', {
-      method: 'POST',
-      headers: datalabHeaders,
-      body: JSON.stringify(requestBody),
+    // 모바일 검색 결과 가져오기
+    const mobileSearchUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=1&mobile=1`;
+    const mobileResponse = await fetch(mobileSearchUrl, {
+      method: 'GET',
+      headers: naverHeaders,
       agent: agent // SSL 인증서 검증 비활성화
     });
     
     // API 응답 상태 확인
-    if (!pcResponse.ok || !mobileResponse.ok) {
-      console.error(`데이터랩 PC 응답 상태: ${pcResponse.status}, ${pcResponse.statusText}`);
-      console.error(`데이터랩 모바일 응답 상태: ${mobileResponse.status}, ${mobileResponse.statusText}`);
+    if (!webResponse.ok || !mobileResponse.ok) {
+      console.error(`네이버 웹 검색 응답 상태: ${webResponse.status}, ${webResponse.statusText}`);
+      console.error(`네이버 모바일 검색 응답 상태: ${mobileResponse.status}, ${mobileResponse.statusText}`);
       
       // 응답 본문 확인 시도
-      let pcErrorText = '';
+      let webErrorText = '';
       let mobileErrorText = '';
       
       try {
-        pcErrorText = await pcResponse.text();
+        webErrorText = await webResponse.text();
         mobileErrorText = await mobileResponse.text();
-        console.error('데이터랩 PC 오류 응답:', pcErrorText);
-        console.error('데이터랩 모바일 오류 응답:', mobileErrorText);
+        console.error('네이버 웹 검색 오류 응답:', webErrorText);
+        console.error('네이버 모바일 검색 오류 응답:', mobileErrorText);
       } catch (e) {
         console.error('응답 본문 읽기 실패:', e);
       }
       
       // 401 오류인 경우 API 키 문제일 가능성이 높음
-      if (pcResponse.status === 401 || mobileResponse.status === 401) {
-        throw new Error(`데이터랩 API 인증 실패 (401): API 키가 유효하지 않거나 만료되었습니다.`);
+      if (webResponse.status === 401 || mobileResponse.status === 401) {
+        throw new Error(`네이버 API 인증 실패 (401): API 키가 유효하지 않거나 만료되었습니다.`);
       }
       
-      // 데이터랩 API 호출 실패 시 추정 데이터 사용
-      console.log(`데이터랩 API 호출 실패, 추정 데이터 사용`);
-      return estimateSearchVolume(keyword);
+      throw new Error(`네이버 검색 API 호출 실패: ${webResponse.status} ${webResponse.statusText}`);
     }
     
-    const pcData = await pcResponse.json();
+    const webData = await webResponse.json();
     const mobileData = await mobileResponse.json();
     
-    console.log(`데이터랩 PC 응답:`, JSON.stringify(pcData).substring(0, 200) + '...');
-    console.log(`데이터랩 모바일 응답:`, JSON.stringify(mobileData).substring(0, 200) + '...');
+    console.log(`네이버 웹 검색 응답:`, JSON.stringify(webData).substring(0, 200) + '...');
+    console.log(`네이버 모바일 검색 응답:`, JSON.stringify(mobileData).substring(0, 200) + '...');
     
-    // 데이터랩 결과에서 검색량 추출
-    // 데이터랩은 상대적인 검색 비율을 제공하므로 실제 검색량으로 변환 필요
-    const pcRatio = calculateTotalRatio(pcData);
-    const mobileRatio = calculateTotalRatio(mobileData);
-    
-    // 비율을 실제 검색량으로 변환 (추정)
-    // 키워드 인기도에 따른 기본 검색량 계수 적용
-    const keywordPopularityFactor = getKeywordPopularityFactor(keyword);
-    
-    // 저번 달의 일수를 고려하여 검색량 계산
-    const daysInLastMonth = endDate.getDate();
-    
-    const pcSearches = convertRatioToVolume(pcRatio, keywordPopularityFactor, daysInLastMonth);
-    const mobileSearches = convertRatioToVolume(mobileRatio, keywordPopularityFactor, daysInLastMonth);
+    // 네이버 검색 API에서 total 값 추출 (실제 검색량)
+    const pcSearches = webData.total || 0;
+    const mobileSearches = mobileData.total || 0;
     const total = pcSearches + mobileSearches;
     
+    // 검색량이 너무 큰 경우 (API 한계) 적절한 값으로 조정
+    const adjustSearchVolume = (volume) => {
+      if (volume > 100000000) return Math.floor(volume / 1000); // 너무 큰 값은 조정
+      return volume;
+    };
+    
     return {
-      total: total,
-      pc: pcSearches,
-      mobile: mobileSearches
+      total: adjustSearchVolume(total),
+      pc: adjustSearchVolume(pcSearches),
+      mobile: adjustSearchVolume(mobileSearches)
     };
     
   } catch (error) {
-    console.error(`데이터랩 API 처리 중 오류 발생:`, error);
-    // 오류 발생 시 추정 데이터 사용
-    return estimateSearchVolume(keyword);
+    console.error(`네이버 검색 API 처리 중 오류 발생:`, error);
+    throw error;
   }
-}
-
-// 데이터랩 결과에서 총 비율 계산 (모든 일자의 비율 합산)
-function calculateTotalRatio(data) {
-  if (!data.results || data.results.length === 0 || !data.results[0].data || data.results[0].data.length === 0) {
-    return 0;
-  }
-  
-  // 모든 일자의 비율 합산
-  return data.results[0].data.reduce((acc, item) => acc + item.ratio, 0);
-}
-
-// 키워드 인기도에 따른 계수 결정
-function getKeywordPopularityFactor(keyword) {
-  // 키워드 길이가 짧을수록 인기 키워드일 가능성이 높음
-  if (keyword.length <= 2) return 1000; // 매우 인기 있는 키워드
-  if (keyword.length <= 4) return 500;  // 인기 있는 키워드
-  if (keyword.length <= 6) return 200;  // 보통 인기도의 키워드
-  if (keyword.length <= 10) return 100; // 낮은 인기도의 키워드
-  return 50; // 매우 낮은 인기도의 키워드
-}
-
-// 비율을 검색량으로 변환 (추정)
-function convertRatioToVolume(ratio, popularityFactor, daysInMonth) {
-  // 비율이 0이면 검색량도 0
-  if (ratio === 0) return 0;
-  
-  // 비율, 인기도 계수, 일수를 고려한 검색량 계산
-  // 비율이 높을수록, 인기도가 높을수록, 일수가 많을수록 검색량이 많아짐
-  const baseVolume = ratio * popularityFactor;
-  
-  // 일별 평균 비율을 구한 후 월간 검색량으로 변환
-  const dailyAverage = baseVolume / daysInMonth;
-  const monthlyVolume = dailyAverage * daysInMonth;
-  
-  // 최소값과 최대값 설정
-  return Math.max(10, Math.min(Math.floor(monthlyVolume), 1000000));
-}
-
-// 검색량 추정 함수 (데이터랩 API 호출 실패 시 사용)
-function estimateSearchVolume(keyword) {
-  // 키워드 길이와 특성에 따른 기본 검색량 추정
-  const popularityFactor = getKeywordPopularityFactor(keyword);
-  
-  // 기본 검색량 계산 (인기도 계수에 기반)
-  const baseVolume = popularityFactor * 20;
-  
-  // 랜덤 변동 추가 (±30%)
-  const variation = baseVolume * 0.3;
-  const totalVolume = Math.floor(baseVolume + (Math.random() * variation * 2 - variation));
-  
-  // PC와 모바일 비율 (모바일이 더 많은 경향)
-  const pcRatio = 0.3;
-  const mobileRatio = 0.7;
-  
-  const pcSearches = Math.floor(totalVolume * pcRatio);
-  const mobileSearches = Math.floor(totalVolume * mobileRatio);
-  
-  return {
-    total: pcSearches + mobileSearches,
-    pc: pcSearches,
-    mobile: mobileSearches
-  };
 } 

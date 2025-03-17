@@ -103,6 +103,10 @@
         <span id="RegMessage" class="text-red-500"></span>
       </div>
 
+      <div class="text-sm text-gray-600 mt-2">
+        ※ 검색량 조회는 금일을 제외한 최근 한달간 네이버 통합 검색에서 키워드가 검색된 횟수입니다.
+      </div>
+
       <!-- 조회 결과 -->
       <div class="mt-8">
         <div class="flex justify-between items-center mb-4">
@@ -117,32 +121,17 @@
           <table class="keyword-table w-full" id="mytable2">
             <thead>
               <tr>
-                <th rowspan="2"><input type="checkbox" class="full_check"/></th>
-                <th rowspan="2">NO</th>
-                <th rowspan="2">키워드</th>
-                <th colspan="2">월간검색수</th>
-                <th rowspan="2">검색수합계</th>
-                <th colspan="2">월간 블로그 발행</th>
-                <th rowspan="2">네이버쇼핑<br/>카테고리</th>
-                <th colspan="2">월평균클릭수</th>
-                <th colspan="2">월평균클릭율</th>
-                <th rowspan="2">경쟁정도</th>
-                <th rowspan="2">월평균노출광고수</th>
-              </tr>
-              <tr>
-                <th>PC</th>
-                <th>Mobile</th>
-                <th>수량</th>
-                <th>포화도</th>
-                <th>PC</th>
-                <th>Mobile</th>
+                <th><input type="checkbox" class="full_check"/></th>
+                <th>NO</th>
+                <th>키워드</th>
+                <th>검색수합계</th>
                 <th>PC</th>
                 <th>Mobile</th>
               </tr>
             </thead>
             <tbody class="sch_tbody">
               <tr class="null_tr">
-                <td colspan="15" class="text-center py-4">키워드를 조회하십시오.</td>
+                <td colspan="6" class="text-center py-4">키워드를 조회하십시오.</td>
               </tr>
             </tbody>
           </table>
@@ -338,7 +327,7 @@
                 if (result.error) {
                   // 오류 처리
                   const errorTR = `<tr>
-                    <td colspan="15" class="text-center text-red-500 py-3">
+                    <td colspan="6" class="text-center text-red-500 py-3">
                       <div class="font-medium">${result.keyword}: API 호출 실패</div>
                       <div class="text-sm mt-1">${result.error}</div>
                     </td>
@@ -355,18 +344,9 @@
                         ${result.keyword}
                       </a>
                     </td>
+                    <td style="text-align:right">${comma(result.total)}</td>
                     <td style="text-align:right">${comma(result.pc)}</td>
                     <td style="text-align:right">${comma(result.mobile)}</td>
-                    <td style="text-align:right">${comma(result.total)}</td>
-                    <td style="text-align:right">${comma(result.monthBlog)}</td>
-                    <td style="text-align:center">${result.blogSaturation}</td>
-                    <td style="text-align:center">${result.shopCategory}</td>
-                    <td style="text-align:right">${comma(result.pcClick)}</td>
-                    <td style="text-align:right">${comma(result.mobileClick)}</td>
-                    <td style="text-align:right">${result.pcClickRate}</td>
-                    <td style="text-align:center">${result.mobileClickRate}</td>
-                    <td style="text-align:center">${result.competition}</td>
-                    <td style="text-align:right">${comma(result.avgAdCount)}</td>
                   </tr>`;
                   
                   $('.sch_tbody').append(pushTR);
@@ -375,7 +355,7 @@
               
               if (!hasValidResults) {
                 const noResultTR = `<tr>
-                  <td colspan="15" class="text-center text-red-500 py-4">
+                  <td colspan="6" class="text-center text-red-500 py-4">
                     <div class="font-medium">모든 키워드에 대한 검색 결과를 가져오지 못했습니다.</div>
                     <div class="text-sm mt-2">
                       네이버 API 호출에 실패했습니다. 다음을 확인해주세요:
@@ -395,7 +375,7 @@
             } else {
               // 결과가 없거나 오류 발생
               const errorTR = `<tr>
-                <td colspan="15" class="text-center text-red-500 py-4">
+                <td colspan="6" class="text-center text-red-500 py-4">
                   <div class="font-medium">데이터를 가져올 수 없습니다.</div>
                   <div class="text-sm mt-2">서버 응답: ${response.message || '알 수 없는 오류'}</div>
                 </td>
@@ -408,7 +388,7 @@
             $(".loding_pop_msg").hide();
             
             const errorTR = `<tr>
-              <td colspan="15" class="text-center text-red-500 py-4">
+              <td colspan="6" class="text-center text-red-500 py-4">
                 <div class="font-medium">서버 오류가 발생했습니다</div>
                 <div class="text-sm mt-2">${error.statusText || '알 수 없는 오류'}</div>
               </td>
@@ -419,7 +399,7 @@
             if (error.responseJSON) {
               console.error('오류 세부 정보:', error.responseJSON);
               const detailTR = `<tr>
-                <td colspan="15" class="text-center text-red-500">
+                <td colspan="6" class="text-center text-red-500">
                   <div class="text-sm">오류 세부 정보: ${JSON.stringify(error.responseJSON)}</div>
                 </td>
               </tr>`;
@@ -449,7 +429,7 @@
 
       // 검색값 초기화
       $(".rese_btn").click(function(){
-        var null_data = '<tr class="null_tr"><td colspan="15" class="text-center py-4">키워드를 조회하십시오.</td></tr>';
+        var null_data = '<tr class="null_tr"><td colspan="6" class="text-center py-4">키워드를 조회하십시오.</td></tr>';
         $(".sch_tbody").html(null_data);
       });
 
