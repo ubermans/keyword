@@ -317,224 +317,76 @@
         // 로딩 메시지 표시
         $(".loding_pop_msg").show();
         
-        // 각 키워드에 대해 직접 API 호출
-        const promises = keywords.map(keyword => {
-          return new Promise((resolve, reject) => {
-            const currentTime = new Date().getTime();
-            
-            // 마피아넷 사이트와 동일한 파라미터 사용
-            $.ajax({
-              url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
-              method: "GET",
-              dataType: "JSON",
-              data: {
-                'keyword': keyword,
-                'time': currentTime,
-                'device': 'pc',
-                'auth': 'mapia',
-                'source': 'direct',
-                'referer': 'https://mapia.net/',
-                'user-agent': navigator.userAgent,
-                'x-requested-with': 'XMLHttpRequest'
-              },
-              headers: {
-                'Referer': 'https://mapia.net/',
-                'Origin': 'https://mapia.net'
-              },
-              success: function(response) {
-                console.log(`키워드 ${keyword} 응답:`, response);
-                resolve({
-                  keyword: keyword,
-                  data: response
-                });
-              },
-              error: function(error) {
-                console.error(`키워드 ${keyword} 오류:`, error);
-                reject(error);
-              }
-            });
-          });
-        });
-        
-        // 모든 API 호출이 완료되면 결과 처리
-        Promise.all(promises.map(p => p.catch(e => e)))
-          .then(results => {
+        // 서버리스 함수를 통해 API 호출
+        $.ajax({
+          url: "/.netlify/functions/keywordSearch",
+          method: "POST",
+          contentType: "application/json",
+          data: JSON.stringify({ keywords: keywords }),
+          success: function(response) {
+            console.log("서버리스 함수 응답:", response);
             $(".loding_pop_msg").hide();
             $(".sch_tbody").empty();
             
-            results.forEach(result => {
-              if (result instanceof Error) {
-                // 오류 처리
-                const errorTR = `<tr>
-                  <td colspan="15" class="text-center text-red-500">
-                    오류가 발생했습니다: ${result.message}
-                  </td>
-                </tr>`;
-                $('.sch_tbody').append(errorTR);
-              } else {
-                // 성공 처리
-                const data = result.data;
-                console.log("API 응답 데이터 구조:", data);
-                
-                // 첫 번째 API 호출 결과에서 PC 및 모바일 검색량 추출
-                if (data) {
-                  let pcSearches = 0;
-                  let mobileSearches = 0;
-                  let total = 0;
-                  
-                  // 응답 구조에 따라 데이터 추출
-                  if (data.result) {
-                    pcSearches = data.result.pcSearches || 0;
-                    mobileSearches = data.result.mobileSearches || 0;
-                  } else if (data.data) {
-                    pcSearches = data.data.pcSearches || 0;
-                    mobileSearches = data.data.mobileSearches || 0;
-                  }
-                  
-                  total = parseInt(pcSearches) + parseInt(mobileSearches);
-                  
-                  // 검색량이 있으면 두 번째 API 호출 수행
-                  if (total > 0) {
-                    // 두 번째 API 호출 (totalSum 포함)
-                    $.ajax({
-                      url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
-                      method: "GET",
-                      async: false, // 동기 호출
-                      dataType: "JSON",
-                      data: {
-                        'keyword': result.keyword,
-                        'totalSum': total,
-                        'time': new Date().getTime(),
-                        'device': 'pc',
-                        'auth': 'mapia',
-                        'source': 'direct',
-                        'referer': 'https://mapia.net/',
-                        'user-agent': navigator.userAgent,
-                        'x-requested-with': 'XMLHttpRequest'
-                      },
-                      headers: {
-                        'Referer': 'https://mapia.net/',
-                        'Origin': 'https://mapia.net'
-                      },
-                      success: function(secondResponse) {
-                        console.log(`키워드 ${result.keyword} 두 번째 응답:`, secondResponse);
-                        
-                        if (secondResponse && secondResponse.status) {
-                          // 두 번째 API 호출 결과로 데이터 업데이트
-                          if (secondResponse.result) {
-                            pcSearches = secondResponse.result.pcSearches || pcSearches;
-                            mobileSearches = secondResponse.result.mobileSearches || mobileSearches;
-                            
-                            const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
-                              <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
-                              <td class="number"></td>
-                              <td style="text-align:center">
-                                <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
-                                  ${result.keyword}
-                                </a>
-                              </td>
-                              <td style="text-align:right">${comma(pcSearches)}</td>
-                              <td style="text-align:right">${comma(mobileSearches)}</td>
-                              <td style="text-align:right">${comma(total)}</td>
-                              <td style="text-align:right">${comma(secondResponse.result?.monthlyBlogPosts || 0)}</td>
-                              <td style="text-align:center">${secondResponse.result?.blogSaturation || '-'}</td>
-                              <td style="text-align:center">${secondResponse.result?.shopCategory || '-'}</td>
-                              <td style="text-align:right">${comma(secondResponse.result?.pcClicks || 0)}</td>
-                              <td style="text-align:right">${comma(secondResponse.result?.mobileClicks || 0)}</td>
-                              <td style="text-align:right">${secondResponse.result?.pcClickRate || '0%'}</td>
-                              <td style="text-align:center">${secondResponse.result?.mobileClickRate || '0%'}</td>
-                              <td style="text-align:center">${secondResponse.result?.competition || '-'}</td>
-                              <td style="text-align:right">${comma(secondResponse.result?.avgAdExposure || 0)}</td>
-                            </tr>`;
-                            
-                            $('.sch_tbody').append(pushTR);
-                          }
-                        } else {
-                          // 두 번째 API 호출 실패 시 첫 번째 결과로 표시
-                          const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
-                            <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
-                            <td class="number"></td>
-                            <td style="text-align:center">
-                              <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
-                                ${result.keyword}
-                              </a>
-                            </td>
-                            <td style="text-align:right">${comma(pcSearches)}</td>
-                            <td style="text-align:right">${comma(mobileSearches)}</td>
-                            <td style="text-align:right">${comma(total)}</td>
-                            <td style="text-align:right">-</td>
-                            <td style="text-align:center">-</td>
-                            <td style="text-align:center">-</td>
-                            <td style="text-align:right">-</td>
-                            <td style="text-align:right">-</td>
-                            <td style="text-align:right">-</td>
-                            <td style="text-align:center">-</td>
-                            <td style="text-align:center">-</td>
-                            <td style="text-align:right">-</td>
-                          </tr>`;
-                          
-                          $('.sch_tbody').append(pushTR);
-                        }
-                      },
-                      error: function(error) {
-                        console.error(`키워드 ${result.keyword} 두 번째 API 호출 오류:`, error);
-                        
-                        // 오류 발생 시 첫 번째 결과로 표시
-                        const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
-                          <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
-                          <td class="number"></td>
-                          <td style="text-align:center">
-                            <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
-                              ${result.keyword}
-                            </a>
-                          </td>
-                          <td style="text-align:right">${comma(pcSearches)}</td>
-                          <td style="text-align:right">${comma(mobileSearches)}</td>
-                          <td style="text-align:right">${comma(total)}</td>
-                          <td style="text-align:right">-</td>
-                          <td style="text-align:center">-</td>
-                          <td style="text-align:center">-</td>
-                          <td style="text-align:right">-</td>
-                          <td style="text-align:right">-</td>
-                          <td style="text-align:right">-</td>
-                          <td style="text-align:center">-</td>
-                          <td style="text-align:center">-</td>
-                          <td style="text-align:right">-</td>
-                        </tr>`;
-                        
-                        $('.sch_tbody').append(pushTR);
-                      }
-                    });
-                  } else {
-                    // 검색량이 없는 경우
-                    const errorTR = `<tr>
-                      <td colspan="15" class="text-center text-red-500">
-                        ${result.keyword}: 검색량이 없습니다.
-                      </td>
-                    </tr>`;
-                    $('.sch_tbody').append(errorTR);
-                  }
-                } else {
+            if (response.status === 'success' && response.results && response.results.length > 0) {
+              response.results.forEach((result, index) => {
+                if (result.error) {
+                  // 오류 처리
                   const errorTR = `<tr>
                     <td colspan="15" class="text-center text-red-500">
-                      ${result.keyword}: 데이터를 가져올 수 없습니다.
+                      ${result.keyword}: ${result.error}
                     </td>
                   </tr>`;
                   $('.sch_tbody').append(errorTR);
+                } else {
+                  // 성공 처리
+                  const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${result.total}">
+                    <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
+                    <td class="number">${index + 1}</td>
+                    <td style="text-align:center">
+                      <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
+                        ${result.keyword}
+                      </a>
+                    </td>
+                    <td style="text-align:right">${comma(result.pc)}</td>
+                    <td style="text-align:right">${comma(result.mobile)}</td>
+                    <td style="text-align:right">${comma(result.total)}</td>
+                    <td style="text-align:right">${comma(result.monthBlog)}</td>
+                    <td style="text-align:center">${result.blogSaturation}</td>
+                    <td style="text-align:center">${result.shopCategory}</td>
+                    <td style="text-align:right">${comma(result.pcClick)}</td>
+                    <td style="text-align:right">${comma(result.mobileClick)}</td>
+                    <td style="text-align:right">${result.pcClickRate}</td>
+                    <td style="text-align:center">${result.mobileClickRate}</td>
+                    <td style="text-align:center">${result.competition}</td>
+                    <td style="text-align:right">${comma(result.avgAdCount)}</td>
+                  </tr>`;
+                  
+                  $('.sch_tbody').append(pushTR);
                 }
-              }
-            });
-            
-            // 번호 매기기
-            numbering();
-            // 입력창 비우기
-            $("#DataQ1").val('');
-          })
-          .catch(error => {
-            console.error('Error:', error);
+              });
+            } else {
+              // 결과가 없거나 오류 발생
+              const errorTR = `<tr>
+                <td colspan="15" class="text-center text-red-500">
+                  데이터를 가져올 수 없습니다. 서버 응답: ${response.message || '알 수 없는 오류'}
+                </td>
+              </tr>`;
+              $('.sch_tbody').append(errorTR);
+            }
+          },
+          error: function(error) {
+            console.error('서버리스 함수 오류:', error);
             $(".loding_pop_msg").hide();
-            alert("오류가 발생했습니다: " + error.message);
-          });
+            
+            const errorTR = `<tr>
+              <td colspan="15" class="text-center text-red-500">
+                서버 오류가 발생했습니다: ${error.statusText || '알 수 없는 오류'}
+              </td>
+            </tr>`;
+            $('.sch_tbody').append(errorTR);
+          }
+        });
       });
 
       // 숫자에 콤마 추가하는 함수
