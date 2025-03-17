@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>키워드 조회 및 견적 생성기</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/jquery-1.12.4.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #f7f9fc;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    @media print {
+      .no-print {
+        display: none;
+      }
+      body {
+        background-color: white;
+      }
+      .container {
+        padding: 0;
+      }
+    }
+    .keyword-table th {
+      background-color: #f3f4f6;
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .keyword-table td {
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 로딩 메시지 -->
+    <div class="loding_pop_msg fixed hidden inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded-lg shadow-lg flex items-center gap-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+        <h3 class="text-lg font-medium">조회중입니다. 잠시만 기다려주세요</h3>
+      </div>
+    </div>
+
+    <!-- 탭 메뉴 -->
+    <div class="mb-6">
+      <div class="border-b border-gray-200">
+        <nav class="-mb-px flex" aria-label="Tabs">
+          <button id="searchTab" class="border-b-2 border-blue-500 py-4 px-6 text-sm font-medium text-blue-600">
+            키워드 조회
+          </button>
+          <button id="estimateTab" class="border-b-2 border-transparent py-4 px-6 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+            견적 생성
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- 키워드 조회 섹션 -->
+    <div id="searchSection" class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h2 class="text-2xl font-bold mb-4">키워드 조회</h2>
+      
+      <div class="mb-4">
+        <textarea 
+          id="DataQ1"
+          rows="6"
+          class="w-full p-3 border border-gray-300 rounded-md"
+          placeholder="한 줄에 하나씩 입력하세요. (최대 100개까지)"
+        ></textarea>
+      </div>
+
+      <div class="flex items-center gap-4 mb-4">
+        <form id="file_form" class="flex-1">
+          <div class="flex gap-2">
+            <input type="file" class="exel_upload hidden" name="file" accept=".xls,.xlsx"/>
+            <input type="text" class="file_name_box flex-1 p-2 border rounded" readonly/>
+            <button type="button" class="exel_up_btn bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+              엑셀업로드
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <button id="SDsave" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+          조회하기
+        </button>
+        <button class="delete_data bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300">
+          입력값지우기
+        </button>
+      </div>
+
+      <div class="text-sm text-gray-600">
+        ※ 검색어에 특수문자를 사용할 수 없습니다.
+        <span id="RegMessage" class="text-red-500"></span>
+      </div>
+
+      <!-- 조회 결과 -->
+      <div class="mt-8">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold">키워드 조회 결과</h3>
+          <div class="flex gap-2">
+            <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">다운로드</button>
+            <button class="rese_btn bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">검색값초기화</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="keyword-table w-full" id="mytable2">
+            <thead>
+              <tr>
+                <th rowspan="2"><input type="checkbox" class="full_check"/></th>
+                <th rowspan="2">NO</th>
+                <th rowspan="2">키워드</th>
+                <th colspan="2">월간검색수</th>
+                <th rowspan="2">검색수합계</th>
+                <th colspan="2">월간 블로그 발행</th>
+                <th rowspan="2">네이버쇼핑<br/>카테고리</th>
+                <th colspan="2">월평균클릭수</th>
+                <th colspan="2">월평균클릭율</th>
+                <th rowspan="2">경쟁정도</th>
+                <th rowspan="2">월평균노출광고수</th>
+              </tr>
+              <tr>
+                <th>PC</th>
+                <th>Mobile</th>
+                <th>수량</th>
+                <th>포화도</th>
+                <th>PC</th>
+                <th>Mobile</th>
+                <th>PC</th>
+                <th>Mobile</th>
+              </tr>
+            </thead>
+            <tbody class="sch_tbody">
+              <tr class="null_tr">
+                <td colspan="15" class="text-center py-4">키워드를 조회하십시오.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 견적 생성 섹션 -->
+    <div id="estimateSection" class="hidden">
+      <div class="no-print bg-white p-6 rounded-lg shadow-md mb-6">
+        <h1 class="text-2xl font-bold mb-4">키워드 견적 생성기</h1>
+        
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2 font-medium">
+            키워드 정보 입력 (형식: 키워드 검색량 가격)
+          </label>
+          <textarea 
+            id="inputText"
+            rows="6"
+            class="w-full p-3 border border-gray-300 rounded-md"
+            placeholder="양재역 헬스 1,020 60&#10;양재역 헬스장 2,200 65&#10;양재 헬스장 570 35&#10;양재 PT 360 40"
+          ></textarea>
+          <div class="text-sm text-gray-500 mt-1">
+            각 줄에 "키워드 검색량 가격" 형식으로 입력하세요. 가격은 만 단위입니다.
+          </div>
+        </div>
+        
+        <div class="flex space-x-2 mb-4">
+          <button 
+            id="generateBtn"
+            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+          >
+            견적서 생성
+          </button>
+          <button 
+            id="printBtn"
+            class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition"
+          >
+            인쇄하기
+          </button>
+          <button 
+            id="clearBtn"
+            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-100 transition"
+          >
+            초기화
+          </button>
+          <button 
+            id="sampleBtn"
+            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-100 transition"
+          >
+            샘플 데이터
+          </button>
+        </div>
+        
+        <div class="text-sm text-gray-600">
+          <h3 class="font-medium mb-1">사용 방법:</h3>
+          <ol class="list-decimal pl-5 space-y-1">
+            <li>각 줄에 "키워드 검색량 가격" 형식으로 입력하세요. (예: 양재역 헬스 1,020 60)</li>
+            <li>가격은 만원 단위입니다. (60 → 600,000원으로 자동 변환)</li>
+            <li>"견적서 생성" 버튼을 클릭하면 아래에 템플릿이 생성됩니다.</li>
+          </ol>
+        </div>
+      </div>
+      
+      <div id="reportContainer" class="hidden">
+        <!-- 여기에 보고서가 생성됩니다 -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 탭 전환 기능
+    document.getElementById('searchTab').addEventListener('click', function() {
+      document.getElementById('searchSection').classList.remove('hidden');
+      document.getElementById('estimateSection').classList.add('hidden');
+      this.classList.add('border-blue-500', 'text-blue-600');
+      this.classList.remove('border-transparent', 'text-gray-500');
+      document.getElementById('estimateTab').classList.remove('border-blue-500', 'text-blue-600');
+      document.getElementById('estimateTab').classList.add('border-transparent', 'text-gray-500');
+    });
+
+    document.getElementById('estimateTab').addEventListener('click', function() {
+      document.getElementById('estimateSection').classList.remove('hidden');
+      document.getElementById('searchSection').classList.add('hidden');
+      this.classList.add('border-blue-500', 'text-blue-600');
+      this.classList.remove('border-transparent', 'text-gray-500');
+      document.getElementById('searchTab').classList.remove('border-blue-500', 'text-blue-600');
+      document.getElementById('searchTab').classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // 키워드 조회 관련 함수들
+    function checkSpecial(str) {
+      var special_pattern = /[,\'\"\\]/gi;
+      return special_pattern.test(str);
+    }
+
+    function get_keyword_info(object) {
+      let currentTime = new Date().getTime();
+      const obj = object;
+      $.ajax({
+        url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
+        method: "GET",
+        async: true,
+        dataType: "JSON",
+        data: {
+          'keyword': obj.data('relkeyword'),
+          'totalSum': obj.data('totalsum'),
+          'time': currentTime
+        },
+        success: function(response) {
+          if(response.status) {
+            $.each(response.result, function(key, value) {
+              obj.find("." + key).html(value);
+            });
+          }
+        }
+      });
+    }
+
+    $(document).ready(function() {
+      // 조회하기 버튼 클릭 이벤트
+      $("#SDsave").click(function() {
+        var txtBox = document.getElementById("DataQ1");
+        var lines = txtBox.value.split("\n");
+        var resultString = '';
+        var textLine = new Array();
+
+        if (lines.length <= 1) {
+          if (lines[0] == '') {
+            alert('키워드를 입력해주세요.');
+            return;
+          }
+        }
+
+        if (lines.length > 100) {
+          var errStr = '최대 100 라인까지 입니다. 입력한 라인은 ' + lines.length + ' 입니다.';
+          document.getElementById("RegMessage").innerHTML = errStr;
+          return;
+        }
+
+        var errCount = 0;
+        var srData = '';
+        for (var i = 0; i <= lines.length - 1; i++) {
+          if (lines[i] == '')
+            continue;
+          else {
+            if (checkSpecial(lines[i])) {
+              errCount++;
+            } else {
+              if (srData == '')
+                srData = lines[i];
+              else
+                srData = srData + '\n' + lines[i];
+            }
+          }
+        }
+
+        if (errCount > 0) {
+          var errStr = '검색어에 사용할 수 없는 특수문자( \' \" \\ , )가 확인되었습니다.( ' + errCount + ' 개)';
+          document.getElementById("RegMessage").innerHTML = errStr;
+          return;
+        }
+
+        // 로딩 메시지 표시
+        $(".loding_pop_msg").show();
+
+        // API 호출
+        fetch('/.netlify/functions/keywordSearch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ keywords: srData.split('\n') })
+        })
+        .then(response => response.json())
+        .then(data => {
+          $(".loding_pop_msg").hide();
+          
+          if (data.status === 'success' && data.results) {
+            $(".null_tr").remove();
+            
+            data.results.forEach(function(item) {
+              const pushTR = `<tr data-relkeyword="${item.keyword}" data-totalsum="${item.total}">
+                <td><input type="checkbox" name="data_check[]" value="${item.keyword}"></td>
+                <td class="number"></td>
+                <td style="text-align:center">
+                  <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(item.keyword)}" target="_blank">
+                    ${item.keyword}
+                  </a>
+                </td>
+                <td style="text-align:right">${comma(item.pc)}</td>
+                <td style="text-align:right">${comma(item.mobile)}</td>
+                <td style="text-align:right">${comma(item.total)}</td>
+                <td style="text-align:right">${comma(item.monthBlog)}</td>
+                <td style="text-align:center">${item.blogSaturation}</td>
+                <td style="text-align:center">${item.shopCategory}</td>
+                <td style="text-align:right">${comma(item.pcClick)}</td>
+                <td style="text-align:right">${comma(item.mobileClick)}</td>
+                <td style="text-align:right">${item.pcClickRate}</td>
+                <td style="text-align:center">${item.mobileClickRate}</td>
+                <td style="text-align:center">${item.competition}</td>
+                <td style="text-align:right">${comma(item.avgAdCount)}</td>
+              </tr>`;
+              
+              $('#mytable2 > tbody').append(pushTR);
+            });
+            
+            numbering();
+            $("#DataQ1").val('');
+          } else {
+            alert(data.message || "오류가 발생했습니다.");
+          }
+        })
+        .catch(error => {
+          $(".loding_pop_msg").hide();
+          alert("오류가 발생했습니다: " + error.message);
+          console.error('Error:', error);
+        });
+      });
+
+      // 숫자에 콤마 추가하는 함수
+      function comma(str) {
+        str = String(str);
+        return str.replace(/(\d)(?=(?:\d{3})+(?!\d))/g, '$1,');
+      }
+
+      // 번호 매기기
+      function numbering() {
+        $("#mytable2 tr").each(function(index) {
+          $(this).find("td:eq(1)").text(index);
+        });
+      }
+
+      // 엑셀 업로드 버튼 클릭
+      $(".exel_up_btn").click(function(){
+        $(".exel_upload").click();
+      });
+
+      // 검색값 초기화
+      $(".rese_btn").click(function(){
+        var null_data = '<tr class="null_tr"><td colspan="15" class="text-center py-4">키워드를 조회하십시오.</td></tr>';
+        $(".sch_tbody").html(null_data);
+      });
+
+      // 입력값 지우기
+      $(".delete_data").click(function(){
+        $("#DataQ1").val("");
+        return false;
+      });
+
+      // 전체 선택 체크박스
+      $(".full_check").click(function(){
+        var chkbox = $("input[name='data_check[]']");
+        if(chkbox.is(":checked") == true){
+          chkbox.prop("checked", false);
+        } else {
+          chkbox.prop("checked", true);
+        }
+      });
+
+      // 선택 결과 다운로드
+      $(".result_title button:first").click(function(){
+        var form = "<form class='frm_down' method='post' action='./key_exel.php'></form>";
+        $("body").append(form);
+
+        var stamp_array = [];
+        var stamp_cnt = 0;
+        var chkbox2 = $("input[name='data_check[]']");
+        
+        for(i=0; i<chkbox2.length; i++) {
+          if (chkbox2[i].checked == true){
+            var parent = $(chkbox2[i]).parents("tr");
+            stamp_array[stamp_cnt] = chkbox2[i].value;
+            stamp_array[stamp_cnt] += "," + parent.find(".monthBlog").text().replace(/,/g, '');
+            stamp_array[stamp_cnt] += "," + parent.find(".blogSaturation").text();
+            stamp_array[stamp_cnt] += "," + parent.find(".shopCategory").text();
+            
+            var put = "<input type='hidden' name='result[]' value='" + stamp_array[stamp_cnt] + "'>";
+            $(".frm_down").append(put);
+            stamp_cnt++;
+          }
+        }
+
+        if(stamp_array.length == 0){
+          alert("다운로드할 키워드를 선택하여 주십시오.");
+          return false;
+        } else {
+          $(".frm_down").submit().remove();
+        }
+      });
+    });
+
+    // 기존 견적 생성 관련 코드
+    document.addEventListener('DOMContentLoaded', function() {
+      // DOM 요소
+      const inputText = document.getElementById('inputText');
+      const generateBtn = document.getElementById('generateBtn');
+      const printBtn = document.getElementById('printBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const sampleBtn = document.getElementById('sampleBtn');
+      const reportContainer = document.getElementById('reportContainer');
+      
+      // 가격 변환 (60 → 600,000원)
+      function convertPrice(price) {
+        // 콤마 제거 후 숫자로 변환
+        const cleanPrice = price.toString().replace(/,/g, '');
+        const numPrice = parseInt(cleanPrice);
+        
+        if (isNaN(numPrice)) return 0;
+        
+        // 만원 단위로 변환 (60 → 600000)
+        return numPrice * 10000;
+      }
+      
+      // 숫자 형식: 천 단위 콤마
+      function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+      
+      // 템플릿 생성 함수
+      function generateReport() {
+        // 입력값 가져오기
+        const lines = inputText.value.trim().split('\n');
+        if (lines.length === 0 || !inputText.value.trim()) {
+          alert("키워드 정보를 입력해 주세요.");
+          return;
+        }
+        
+        // 데이터 정리
+        const rows = [];
+        
+        lines.forEach(line => {
+          line = line.trim();
+          if (!line) return;
+          
+          // 공백으로 토큰 분리
+          const tokens = line.split(/\s+/);
+          
+          // 최소 3개 이상의 토큰이 필요 (키워드, 검색량, 가격)
+          if (tokens.length < 3) return;
+          
+          // 마지막 토큰을 가격으로, 마지막 직전 토큰을 검색량으로 처리
+          const priceStr = tokens.pop();
+          const volumeStr = tokens.pop();
+          
+          // 나머지 토큰을 키워드로 합치기
+          const keyword = tokens.join(' ');
+          
+          // 검색량 변환 (콤마 제거)
+          const searchVolume = parseInt(volumeStr.replace(/,/g, ''));
+          
+          // 가격 변환
+          const price = convertPrice(priceStr);
+          
+          // 유효한 데이터만 추가
+          if (keyword && !isNaN(searchVolume) && price > 0) {
+            rows.push({
+              keyword: keyword,
+              searchVolume: searchVolume,
+              price: price
+            });
+          }
+        });
+        
+        if (rows.length === 0) {
+          alert("유효한 데이터가 없습니다. 입력 형식을 확인해주세요.");
+          return;
+        }
+        
+        // 현재 날짜
+        const today = new Date();
+        const dateString = today.toLocaleDateString('ko-KR', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        const reportIdDate = today.toISOString().slice(0, 10).replace(/-/g, '');
+        
+        // 보고서 HTML 생성
+        let reportHTML = `
+          <div class="border border-gray-200 rounded-md overflow-hidden bg-white shadow-md">
+            <!-- 헤더 -->
+            <div class="bg-gray-800 text-white p-4 flex justify-between items-center">
+              <div>
+                <h2 class="text-xl font-bold">키워드 견적</h2>
+                <div class="text-sm mt-1">㈜비맵</div>
+              </div>
+              <div class="text-sm">${dateString}</div>
+            </div>
+            
+            <!-- 개요 -->
+            <div class="bg-gray-100 p-4 text-sm">
+              개요: 월간 검색량 및 키워드 가격 분석 데이터
+            </div>
+            
+            <!-- 테이블 -->
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="bg-gray-800 text-white">
+                    <th class="px-4 py-2 text-left">키워드</th>
+                    <th class="px-4 py-2 text-right">월 검색량</th>
+                    <th class="px-4 py-2 text-right">키워드 가격</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        rows.forEach((row, index) => {
+          reportHTML += `
+            <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+              <td class="px-4 py-3 border-t">${row.keyword}</td>
+              <td class="px-4 py-3 text-right border-t">${formatNumber(row.searchVolume)}회</td>
+              <td class="px-4 py-3 text-right border-t bg-blue-50">${formatNumber(row.price)}원</td>
+            </tr>
+          `;
+        });
+        
+        reportHTML += `
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- 푸터 -->
+            <div class="bg-gray-100 p-3 text-sm text-gray-600">
+              ※ 출처: 네이버 키워드 도구 및 시장 조사
+            </div>
+            
+            <div class="p-2 text-right text-xs text-gray-500">
+              Report ID: KW-${reportIdDate} | ㈜비맵
+            </div>
+            
+            <div class="text-center text-xs text-gray-400 p-2">
+              CONFIDENTIAL MARKET ANALYSIS
+            </div>
+          </div>
+        `;
+        
+        reportContainer.innerHTML = reportHTML;
+        reportContainer.classList.remove('hidden');
+      }
+      
+      // 인쇄 기능
+      function printReport() {
+        window.print();
+      }
+      
+      // 초기화 기능
+      function clearAll() {
+        inputText.value = '';
+        reportContainer.innerHTML = '';
+        reportContainer.classList.add('hidden');
+      }
+      
+      // 샘플 데이터 채우기
+      function fillSampleData() {
+        inputText.value = `양재역 헬스 1,020 60
+양재역 헬스장 2,200 65
+양재 헬스장 570 35
+양재 PT 360 40`;
+      }
+      
+      // 이벤트 리스너 등록
+      generateBtn.addEventListener('click', generateReport);
+      printBtn.addEventListener('click', printReport);
+      clearBtn.addEventListener('click', clearAll);
+      sampleBtn.addEventListener('click', fillSampleData);
+      
+      // 페이지 로드 시 샘플 데이터 채우기
+      fillSampleData();
+    });
+  </script>
+</body>
+</html>
