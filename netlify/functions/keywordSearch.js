@@ -53,7 +53,7 @@ exports.handler = async function(event, context) {
       try {
         const currentTime = new Date().getTime();
         const response = await fetch(
-          `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&currentTime=${currentTime}`,
+          `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`,
           {
             method: 'GET',
             headers: {
@@ -69,21 +69,21 @@ exports.handler = async function(event, context) {
 
         const data = await response.json();
         
-        if (data && data.status === 'success') {
+        if (data && data.status) {
           results.push({
             keyword: keyword,
-            pc: data.pc || 0,
-            mobile: data.mobile || 0,
-            total: (parseInt(data.pc || 0) + parseInt(data.mobile || 0)),
-            monthBlog: data.monthBlog || 0,
-            blogSaturation: data.blogSaturation || '-',
-            shopCategory: data.shopCategory || '-',
-            pcClick: data.pcClick || 0,
-            mobileClick: data.mobileClick || 0,
-            pcClickRate: data.pcClickRate || '0%',
-            mobileClickRate: data.mobileClickRate || '0%',
-            competition: data.competition || '-',
-            avgAdCount: data.avgAdCount || 0
+            pc: data.result?.pcSearches || 0,
+            mobile: data.result?.mobileSearches || 0,
+            total: (parseInt(data.result?.pcSearches || 0) + parseInt(data.result?.mobileSearches || 0)),
+            monthBlog: data.result?.monthlyBlogPosts || 0,
+            blogSaturation: data.result?.blogSaturation || '-',
+            shopCategory: data.result?.shopCategory || '-',
+            pcClick: data.result?.pcClicks || 0,
+            mobileClick: data.result?.mobileClicks || 0,
+            pcClickRate: data.result?.pcClickRate || '0%',
+            mobileClickRate: data.result?.mobileClickRate || '0%',
+            competition: data.result?.competition || '-',
+            avgAdCount: data.result?.avgAdExposure || 0
           });
         } else {
           results.push({
