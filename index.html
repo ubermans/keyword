@@ -6,7 +6,8 @@
   <title>키워드 조회 및 견적 생성기</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="js/jquery-1.12.4.min.js"></script>
+  <!-- jQuery CDN -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -213,8 +214,12 @@
   </div>
 
   <script>
+    // 페이지 로드 시 콘솔에 메시지 출력
+    console.log("페이지가 로드되었습니다.");
+    
     // 탭 전환 기능
     document.getElementById('searchTab').addEventListener('click', function() {
+      console.log("검색 탭 클릭됨");
       document.getElementById('searchSection').classList.remove('hidden');
       document.getElementById('estimateSection').classList.add('hidden');
       this.classList.add('border-blue-500', 'text-blue-600');
@@ -224,6 +229,7 @@
     });
 
     document.getElementById('estimateTab').addEventListener('click', function() {
+      console.log("견적 탭 클릭됨");
       document.getElementById('estimateSection').classList.remove('hidden');
       document.getElementById('searchSection').classList.add('hidden');
       this.classList.add('border-blue-500', 'text-blue-600');
@@ -261,9 +267,12 @@
       });
     }
 
+    // 페이지 로드 완료 시 실행
     $(document).ready(function() {
-      // 조회하기 버튼 클릭 이벤트
-      $("#SDsave").click(function() {
+      console.log("jQuery가 로드되었습니다.");
+      
+      // 조회하기 버튼에 클릭 이벤트 리스너 추가
+      $("#SDsave").on("click", function() {
         console.log("조회하기 버튼 클릭됨");
         
         // 입력값 검증
@@ -479,6 +488,8 @@
 
     // 기존 견적 생성 관련 코드
     document.addEventListener('DOMContentLoaded', function() {
+      console.log("DOM이 로드되었습니다. 견적 생성 기능 초기화.");
+      
       // DOM 요소
       const inputText = document.getElementById('inputText');
       const generateBtn = document.getElementById('generateBtn');
@@ -506,6 +517,8 @@
       
       // 템플릿 생성 함수
       function generateReport() {
+        console.log("견적서 생성 함수 호출됨");
+        
         // 입력값 가져오기
         const lines = inputText.value.trim().split('\n');
         if (lines.length === 0 || !inputText.value.trim()) {
@@ -625,15 +638,19 @@
         
         reportContainer.innerHTML = reportHTML;
         reportContainer.classList.remove('hidden');
+        
+        console.log("견적서 생성 완료");
       }
       
       // 인쇄 기능
       function printReport() {
+        console.log("인쇄 기능 호출됨");
         window.print();
       }
       
       // 초기화 기능
       function clearAll() {
+        console.log("초기화 기능 호출됨");
         inputText.value = '';
         reportContainer.innerHTML = '';
         reportContainer.classList.add('hidden');
@@ -641,6 +658,7 @@
       
       // 샘플 데이터 채우기
       function fillSampleData() {
+        console.log("샘플 데이터 채우기 호출됨");
         inputText.value = `양재역 헬스 1,020 60
 양재역 헬스장 2,200 65
 양재 헬스장 570 35
@@ -648,10 +666,30 @@
       }
       
       // 이벤트 리스너 등록
-      generateBtn.addEventListener('click', generateReport);
-      printBtn.addEventListener('click', printReport);
-      clearBtn.addEventListener('click', clearAll);
-      sampleBtn.addEventListener('click', fillSampleData);
+      if (generateBtn) {
+        console.log("견적서 생성 버튼 이벤트 리스너 등록");
+        generateBtn.addEventListener('click', generateReport);
+      } else {
+        console.error("견적서 생성 버튼을 찾을 수 없습니다.");
+      }
+      
+      if (printBtn) {
+        printBtn.addEventListener('click', printReport);
+      } else {
+        console.error("인쇄 버튼을 찾을 수 없습니다.");
+      }
+      
+      if (clearBtn) {
+        clearBtn.addEventListener('click', clearAll);
+      } else {
+        console.error("초기화 버튼을 찾을 수 없습니다.");
+      }
+      
+      if (sampleBtn) {
+        sampleBtn.addEventListener('click', fillSampleData);
+      } else {
+        console.error("샘플 데이터 버튼을 찾을 수 없습니다.");
+      }
       
       // 페이지 로드 시 샘플 데이터 채우기
       fillSampleData();
