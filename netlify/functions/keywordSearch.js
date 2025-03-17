@@ -6,8 +6,8 @@ const agent = new https.Agent({
   rejectUnauthorized: false
 });
 
-// API 모드 설정 (naver 또는 mapia)
-const API_MODE = 'mapia'; // 네이버 API가 작동하지 않으면 'mapia'로 설정
+// API 모드 설정 (항상 naver 사용)
+const API_MODE = 'naver';
 
 // 네이버 API 키 설정
 const NAVER_CLIENT_ID = 'kcUpxrk46rltNyD4mp5j';
@@ -66,13 +66,8 @@ exports.handler = async function(event, context) {
       try {
         console.log(`키워드 "${keyword}" 처리 시작 (API 모드: ${API_MODE})`);
         
-        if (API_MODE === 'naver') {
-          // 네이버 API 사용
-          await processWithNaverAPI(keyword, results);
-        } else {
-          // 마피아넷 API 사용
-          await processWithMapiaAPI(keyword, results);
-        }
+        // 네이버 API 사용
+        await processWithNaverAPI(keyword, results);
         
         // API 호출 간 딜레이
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -114,207 +109,180 @@ async function processWithNaverAPI(keyword, results) {
   // 네이버 API 호출을 위한 헤더 설정
   const naverHeaders = {
     'X-Naver-Client-Id': NAVER_CLIENT_ID,
-    'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+    'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
   };
 
   console.log('네이버 API 헤더:', JSON.stringify(naverHeaders));
 
-  // 네이버 검색 API 호출 (웹 문서 검색)
-  const webSearchUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=10`;
-  const blogSearchUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`;
-  
-  console.log(`네이버 웹 검색 API 호출: ${webSearchUrl}`);
-  
-  // 웹 검색 결과 가져오기
-  const webResponse = await fetch(webSearchUrl, {
-    method: 'GET',
-    headers: naverHeaders,
-    agent: agent // SSL 인증서 검증 비활성화
-  });
-  
-  // 블로그 검색 결과 가져오기
-  const blogResponse = await fetch(blogSearchUrl, {
-    method: 'GET',
-    headers: naverHeaders,
-    agent: agent // SSL 인증서 검증 비활성화
-  });
-  
-  // API 응답 상태 확인
-  if (!webResponse.ok || !blogResponse.ok) {
-    console.error(`웹 검색 응답 상태: ${webResponse.status}, ${webResponse.statusText}`);
-    console.error(`블로그 검색 응답 상태: ${blogResponse.status}, ${blogResponse.statusText}`);
+  try {
+    // 네이버 검색 API 호출 (웹 문서, 블로그, 쇼핑 검색)
+    const webSearchUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=10`;
+    const blogSearchUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`;
+    const shopSearchUrl = `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(keyword)}&display=10`;
     
-    // 응답 본문 확인 시도
-    let webErrorText = '';
-    let blogErrorText = '';
+    console.log(`네이버 웹 검색 API 호출: ${webSearchUrl}`);
     
-    try {
-      webErrorText = await webResponse.text();
-      blogErrorText = await blogResponse.text();
-      console.error('웹 검색 오류 응답:', webErrorText);
-      console.error('블로그 검색 오류 응답:', blogErrorText);
-    } catch (e) {
-      console.error('응답 본문 읽기 실패:', e);
+    // 웹 검색 결과 가져오기
+    const webResponse = await fetch(webSearchUrl, {
+      method: 'GET',
+      headers: naverHeaders,
+      agent: agent // SSL 인증서 검증 비활성화
+    });
+    
+    // 블로그 검색 결과 가져오기
+    const blogResponse = await fetch(blogSearchUrl, {
+      method: 'GET',
+      headers: naverHeaders,
+      agent: agent // SSL 인증서 검증 비활성화
+    });
+    
+    // 쇼핑 검색 결과 가져오기
+    const shopResponse = await fetch(shopSearchUrl, {
+      method: 'GET',
+      headers: naverHeaders,
+      agent: agent // SSL 인증서 검증 비활성화
+    });
+    
+    // API 응답 상태 확인
+    if (!webResponse.ok || !blogResponse.ok || !shopResponse.ok) {
+      console.error(`웹 검색 응답 상태: ${webResponse.status}, ${webResponse.statusText}`);
+      console.error(`블로그 검색 응답 상태: ${blogResponse.status}, ${blogResponse.statusText}`);
+      console.error(`쇼핑 검색 응답 상태: ${shopResponse.status}, ${shopResponse.statusText}`);
+      
+      // 응답 본문 확인 시도
+      let webErrorText = '';
+      let blogErrorText = '';
+      let shopErrorText = '';
+      
+      try {
+        webErrorText = await webResponse.text();
+        blogErrorText = await blogResponse.text();
+        shopErrorText = await shopResponse.text();
+        console.error('웹 검색 오류 응답:', webErrorText);
+        console.error('블로그 검색 오류 응답:', blogErrorText);
+        console.error('쇼핑 검색 오류 응답:', shopErrorText);
+      } catch (e) {
+        console.error('응답 본문 읽기 실패:', e);
+      }
+      
+      throw new Error(`네이버 API 요청 실패: 웹 검색(${webResponse.status}), 블로그 검색(${blogResponse.status}), 쇼핑 검색(${shopResponse.status})`);
     }
     
-    throw new Error(`네이버 API 요청 실패: 웹 검색(${webResponse.status}), 블로그 검색(${blogResponse.status})`);
-  }
-  
-  const webData = await webResponse.json();
-  const blogData = await blogResponse.json();
-  
-  console.log(`네이버 웹 검색 API 응답:`, JSON.stringify(webData).substring(0, 200) + '...');
-  console.log(`네이버 블로그 검색 API 응답:`, JSON.stringify(blogData).substring(0, 200) + '...');
-  
-  // 검색 결과에서 데이터 추출
-  const webTotal = webData.total || 0;
-  const blogTotal = blogData.total || 0;
-  
-  // 검색량 계산 개선 - 네이버 검색 결과 수를 기반으로 더 현실적인 검색량 추정
-  // 검색 결과가 많을수록 실제 검색량도 많을 가능성이 높지만, 선형적이지 않음
-  let estimatedSearchVolume = 0;
-  
-  if (webTotal < 1000) {
-    estimatedSearchVolume = webTotal * 2; // 검색 결과가 적으면 검색량도 적음
-  } else if (webTotal < 10000) {
-    estimatedSearchVolume = 2000 + (webTotal - 1000) * 0.5; // 중간 범위
-  } else if (webTotal < 100000) {
-    estimatedSearchVolume = 6500 + (webTotal - 10000) * 0.1; // 높은 범위
-  } else if (webTotal < 1000000) {
-    estimatedSearchVolume = 15500 + (webTotal - 100000) * 0.05; // 매우 높은 범위
-  } else {
-    estimatedSearchVolume = 60500 + (webTotal - 1000000) * 0.01; // 극도로 높은 범위
-  }
-  
-  // 검색량이 너무 낮거나 높지 않도록 조정
-  estimatedSearchVolume = Math.max(10, Math.min(estimatedSearchVolume, 500000));
-  
-  // PC와 모바일 검색량 비율 추정 (실제 데이터는 아니지만 합리적인 추정)
-  const pcRatio = 0.3; // PC 검색 비율 (30%)
-  const mobileRatio = 0.7; // 모바일 검색 비율 (70%)
-  
-  const pcSearches = Math.floor(estimatedSearchVolume * pcRatio);
-  const mobileSearches = Math.floor(estimatedSearchVolume * mobileRatio);
-  const total = pcSearches + mobileSearches;
-  
-  console.log(`키워드 "${keyword}" 검색량 - PC: ${pcSearches}, Mobile: ${mobileSearches}, 합계: ${total} (웹 검색 결과 수: ${webTotal})`);
-  
-  // 검색량 데이터 생성
-  results.push({
-    keyword: keyword,
-    pc: pcSearches,
-    mobile: mobileSearches,
-    total: total,
-    monthBlog: blogTotal,
-    blogSaturation: getBlogSaturation(blogTotal),
-    shopCategory: '일반',
-    pcClick: Math.floor(pcSearches * 0.7),
-    mobileClick: Math.floor(mobileSearches * 0.6),
-    pcClickRate: `${Math.floor(70 + Math.random() * 20)}%`,
-    mobileClickRate: `${Math.floor(60 + Math.random() * 20)}%`,
-    competition: getCompetition(webTotal),
-    avgAdCount: Math.min(20, Math.floor(webTotal / 1000))
-  });
-}
-
-// 마피아넷 API를 사용하여 키워드 처리
-async function processWithMapiaAPI(keyword, results) {
-  // 현재 시간 (타임스탬프)
-  const currentTime = new Date().getTime();
-  
-  // 마피아넷 API 호출 (첫 번째 호출)
-  const firstApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}&device=pc&auth=mapia&source=direct`;
-  
-  console.log(`마피아넷 API 첫 번째 호출: ${firstApiUrl}`);
-  
-  // 첫 번째 API 호출
-  const firstResponse = await fetch(firstApiUrl, {
-    method: 'GET',
-    agent: agent // SSL 인증서 검증 비활성화
-  });
-  
-  if (!firstResponse.ok) {
-    console.error(`마피아넷 API 첫 번째 호출 실패: ${firstResponse.status}, ${firstResponse.statusText}`);
-    throw new Error(`마피아넷 API 요청 실패: ${firstResponse.status}`);
-  }
-  
-  const firstData = await firstResponse.json();
-  console.log(`마피아넷 API 첫 번째 응답:`, firstData);
-  
-  if (!firstData.status) {
-    throw new Error(`마피아넷 API 응답 오류: ${firstData.message || '알 수 없는 오류'}`);
-  }
-  
-  // 두 번째 API 호출 (totalSum 포함)
-  const secondApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=${firstData.result.total || 0}&time=${currentTime}&device=pc&auth=mapia&source=direct`;
-  
-  console.log(`마피아넷 API 두 번째 호출: ${secondApiUrl}`);
-  
-  const secondResponse = await fetch(secondApiUrl, {
-    method: 'GET',
-    agent: agent // SSL 인증서 검증 비활성화
-  });
-  
-  if (!secondResponse.ok) {
-    console.error(`마피아넷 API 두 번째 호출 실패: ${secondResponse.status}, ${secondResponse.statusText}`);
-    // 두 번째 호출이 실패해도 첫 번째 호출 데이터 사용
+    const webData = await webResponse.json();
+    const blogData = await blogResponse.json();
+    const shopData = await shopResponse.json();
+    
+    console.log(`네이버 웹 검색 API 응답:`, JSON.stringify(webData).substring(0, 200) + '...');
+    console.log(`네이버 블로그 검색 API 응답:`, JSON.stringify(blogData).substring(0, 200) + '...');
+    console.log(`네이버 쇼핑 검색 API 응답:`, JSON.stringify(shopData).substring(0, 200) + '...');
+    
+    // 검색 결과에서 데이터 추출
+    const webTotal = webData.total || 0;
+    const blogTotal = blogData.total || 0;
+    const shopTotal = shopData.total || 0;
+    
+    // 검색량 계산 개선 - 네이버 검색 결과 수를 기반으로 더 현실적인 검색량 추정
+    // 검색 결과가 많을수록 실제 검색량도 많을 가능성이 높지만, 선형적이지 않음
+    let estimatedSearchVolume = 0;
+    
+    if (webTotal < 1000) {
+      estimatedSearchVolume = webTotal * 2; // 검색 결과가 적으면 검색량도 적음
+    } else if (webTotal < 10000) {
+      estimatedSearchVolume = 2000 + (webTotal - 1000) * 0.5; // 중간 범위
+    } else if (webTotal < 100000) {
+      estimatedSearchVolume = 6500 + (webTotal - 10000) * 0.1; // 높은 범위
+    } else if (webTotal < 1000000) {
+      estimatedSearchVolume = 15500 + (webTotal - 100000) * 0.05; // 매우 높은 범위
+    } else {
+      estimatedSearchVolume = 60500 + (webTotal - 1000000) * 0.01; // 극도로 높은 범위
+    }
+    
+    // 검색량이 너무 낮거나 높지 않도록 조정
+    estimatedSearchVolume = Math.max(10, Math.min(estimatedSearchVolume, 500000));
+    
+    // PC와 모바일 검색량 비율 추정 (실제 데이터는 아니지만 합리적인 추정)
+    const pcRatio = 0.3; // PC 검색 비율 (30%)
+    const mobileRatio = 0.7; // 모바일 검색 비율 (70%)
+    
+    const pcSearches = Math.floor(estimatedSearchVolume * pcRatio);
+    const mobileSearches = Math.floor(estimatedSearchVolume * mobileRatio);
+    const total = pcSearches + mobileSearches;
+    
+    // 클릭수 및 클릭율 계산
+    const pcClickRate = Math.floor(70 + Math.random() * 20);
+    const mobileClickRate = Math.floor(60 + Math.random() * 20);
+    const pcClick = Math.floor(pcSearches * (pcClickRate / 100));
+    const mobileClick = Math.floor(mobileSearches * (mobileClickRate / 100));
+    
+    // 쇼핑 카테고리 추출
+    let shopCategory = '일반';
+    if (shopData.items && shopData.items.length > 0) {
+      // 첫 번째 쇼핑 아이템의 카테고리 사용
+      const categories = shopData.items.map(item => item.category1);
+      // 가장 많이 등장하는 카테고리 찾기
+      const categoryCounts = {};
+      categories.forEach(cat => {
+        if (cat) {
+          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        }
+      });
+      
+      let maxCount = 0;
+      for (const cat in categoryCounts) {
+        if (categoryCounts[cat] > maxCount) {
+          maxCount = categoryCounts[cat];
+          shopCategory = cat;
+        }
+      }
+    }
+    
+    // 광고 노출 수 추정 (경쟁 정도에 따라 다름)
+    const competition = getCompetition(webTotal);
+    let avgAdCount = 0;
+    
+    switch (competition) {
+      case '매우 낮음':
+        avgAdCount = Math.floor(Math.random() * 3) + 1;
+        break;
+      case '낮음':
+        avgAdCount = Math.floor(Math.random() * 5) + 3;
+        break;
+      case '보통':
+        avgAdCount = Math.floor(Math.random() * 7) + 5;
+        break;
+      case '높음':
+        avgAdCount = Math.floor(Math.random() * 10) + 7;
+        break;
+      case '매우 높음':
+        avgAdCount = Math.floor(Math.random() * 15) + 10;
+        break;
+    }
+    
+    console.log(`키워드 "${keyword}" 검색량 - PC: ${pcSearches}, Mobile: ${mobileSearches}, 합계: ${total} (웹 검색 결과 수: ${webTotal})`);
+    
+    // 검색량 데이터 생성 (요청된 형식에 맞게)
     results.push({
       keyword: keyword,
-      pc: parseInt(firstData.result.pc || 0),
-      mobile: parseInt(firstData.result.mobile || 0),
-      total: parseInt(firstData.result.total || 0),
-      monthBlog: parseInt(firstData.result.monthBlog || 0),
-      blogSaturation: firstData.result.blogSaturation || '알 수 없음',
-      shopCategory: firstData.result.shopCategory || '일반',
-      pcClick: parseInt(firstData.result.pcClick || 0),
-      mobileClick: parseInt(firstData.result.mobileClick || 0),
-      pcClickRate: firstData.result.pcClickRate || '0%',
-      mobileClickRate: firstData.result.mobileClickRate || '0%',
-      competition: firstData.result.competition || '알 수 없음',
-      avgAdCount: parseInt(firstData.result.avgAdCount || 0)
+      pc: pcSearches,
+      mobile: mobileSearches,
+      total: total,
+      monthBlog: blogTotal,
+      blogSaturation: getBlogSaturation(blogTotal),
+      shopCategory: shopCategory,
+      pcClick: pcClick,
+      mobileClick: mobileClick,
+      pcClickRate: `${pcClickRate}%`,
+      mobileClickRate: `${mobileClickRate}%`,
+      competition: competition,
+      avgAdCount: avgAdCount
     });
-    return;
+  } catch (error) {
+    console.error(`네이버 API 처리 중 오류 발생:`, error);
+    throw error; // 오류를 상위 함수로 전달
   }
-  
-  const secondData = await secondResponse.json();
-  console.log(`마피아넷 API 두 번째 응답:`, secondData);
-  
-  if (!secondData.status) {
-    // 두 번째 호출이 실패해도 첫 번째 호출 데이터 사용
-    results.push({
-      keyword: keyword,
-      pc: parseInt(firstData.result.pc || 0),
-      mobile: parseInt(firstData.result.mobile || 0),
-      total: parseInt(firstData.result.total || 0),
-      monthBlog: parseInt(firstData.result.monthBlog || 0),
-      blogSaturation: firstData.result.blogSaturation || '알 수 없음',
-      shopCategory: firstData.result.shopCategory || '일반',
-      pcClick: parseInt(firstData.result.pcClick || 0),
-      mobileClick: parseInt(firstData.result.mobileClick || 0),
-      pcClickRate: firstData.result.pcClickRate || '0%',
-      mobileClickRate: firstData.result.mobileClickRate || '0%',
-      competition: firstData.result.competition || '알 수 없음',
-      avgAdCount: parseInt(firstData.result.avgAdCount || 0)
-    });
-    return;
-  }
-  
-  // 두 번째 API 호출 결과 사용
-  results.push({
-    keyword: keyword,
-    pc: parseInt(secondData.result.pc || 0),
-    mobile: parseInt(secondData.result.mobile || 0),
-    total: parseInt(secondData.result.total || 0),
-    monthBlog: parseInt(secondData.result.monthBlog || 0),
-    blogSaturation: secondData.result.blogSaturation || '알 수 없음',
-    shopCategory: secondData.result.shopCategory || '일반',
-    pcClick: parseInt(secondData.result.pcClick || 0),
-    mobileClick: parseInt(secondData.result.mobileClick || 0),
-    pcClickRate: secondData.result.pcClickRate || '0%',
-    mobileClickRate: secondData.result.mobileClickRate || '0%',
-    competition: secondData.result.competition || '알 수 없음',
-    avgAdCount: parseInt(secondData.result.avgAdCount || 0)
-  });
 }
 
 // 블로그 포화도 계산 함수
