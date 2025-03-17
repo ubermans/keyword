@@ -264,38 +264,34 @@
     $(document).ready(function() {
       // 조회하기 버튼 클릭 이벤트
       $("#SDsave").click(function() {
+        // 입력값 검증
         var txtBox = document.getElementById("DataQ1");
         var lines = txtBox.value.split("\n");
-        var resultString = '';
-        var textLine = new Array();
-
-        if (lines.length <= 1) {
-          if (lines[0] == '') {
-            alert('키워드를 입력해주세요.');
-            return;
-          }
+        
+        // 빈 입력 체크
+        if (lines.length <= 1 && lines[0] === '') {
+          alert('키워드를 입력해주세요.');
+          return;
         }
 
+        // 라인 수 체크
         if (lines.length > 100) {
           var errStr = '최대 100 라인까지 입니다. 입력한 라인은 ' + lines.length + ' 입니다.';
           document.getElementById("RegMessage").innerHTML = errStr;
           return;
         }
 
+        // 특수문자 체크 및 키워드 정리
         var errCount = 0;
-        var srData = '';
-        for (var i = 0; i <= lines.length - 1; i++) {
-          if (lines[i] == '')
-            continue;
-          else {
-            if (checkSpecial(lines[i])) {
-              errCount++;
-            } else {
-              if (srData == '')
-                srData = lines[i];
-              else
-                srData = srData + '\n' + lines[i];
-            }
+        var keywords = [];
+        for (var i = 0; i < lines.length; i++) {
+          var keyword = lines[i].trim();
+          if (keyword === '') continue;
+          
+          if (checkSpecial(keyword)) {
+            errCount++;
+          } else {
+            keywords.push(keyword);
           }
         }
 
@@ -314,42 +310,59 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ keywords: srData.split('\n') })
+          body: JSON.stringify({ keywords: keywords })
         })
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
         .then(data => {
           $(".loding_pop_msg").hide();
           
           if (data.status === 'success' && data.results) {
-            $(".null_tr").remove();
+            // 기존 결과 제거
+            $(".sch_tbody").empty();
             
             data.results.forEach(function(item) {
-              const pushTR = `<tr data-relkeyword="${item.keyword}" data-totalsum="${item.total}">
-                <td><input type="checkbox" name="data_check[]" value="${item.keyword}"></td>
-                <td class="number"></td>
-                <td style="text-align:center">
-                  <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(item.keyword)}" target="_blank">
-                    ${item.keyword}
-                  </a>
-                </td>
-                <td style="text-align:right">${comma(item.pc)}</td>
-                <td style="text-align:right">${comma(item.mobile)}</td>
-                <td style="text-align:right">${comma(item.total)}</td>
-                <td style="text-align:right">${comma(item.monthBlog)}</td>
-                <td style="text-align:center">${item.blogSaturation}</td>
-                <td style="text-align:center">${item.shopCategory}</td>
-                <td style="text-align:right">${comma(item.pcClick)}</td>
-                <td style="text-align:right">${comma(item.mobileClick)}</td>
-                <td style="text-align:right">${item.pcClickRate}</td>
-                <td style="text-align:center">${item.mobileClickRate}</td>
-                <td style="text-align:center">${item.competition}</td>
-                <td style="text-align:right">${comma(item.avgAdCount)}</td>
-              </tr>`;
-              
-              $('#mytable2 > tbody').append(pushTR);
+              if (item.error) {
+                const errorTR = `<tr>
+                  <td colspan="15" class="text-center text-red-500">
+                    ${item.keyword}: ${item.error}
+                  </td>
+                </tr>`;
+                $('.sch_tbody').append(errorTR);
+              } else {
+                const pushTR = `<tr data-relkeyword="${item.keyword}" data-totalsum="${item.total}">
+                  <td><input type="checkbox" name="data_check[]" value="${item.keyword}"></td>
+                  <td class="number"></td>
+                  <td style="text-align:center">
+                    <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(item.keyword)}" target="_blank">
+                      ${item.keyword}
+                    </a>
+                  </td>
+                  <td style="text-align:right">${comma(item.pc)}</td>
+                  <td style="text-align:right">${comma(item.mobile)}</td>
+                  <td style="text-align:right">${comma(item.total)}</td>
+                  <td style="text-align:right">${comma(item.monthBlog)}</td>
+                  <td style="text-align:center">${item.blogSaturation}</td>
+                  <td style="text-align:center">${item.shopCategory}</td>
+                  <td style="text-align:right">${comma(item.pcClick)}</td>
+                  <td style="text-align:right">${comma(item.mobileClick)}</td>
+                  <td style="text-align:right">${item.pcClickRate}</td>
+                  <td style="text-align:center">${item.mobileClickRate}</td>
+                  <td style="text-align:center">${item.competition}</td>
+                  <td style="text-align:right">${comma(item.avgAdCount)}</td>
+                </tr>`;
+                
+                $('.sch_tbody').append(pushTR);
+              }
             });
             
+            // 번호 매기기
             numbering();
+            // 입력창 비우기
             $("#DataQ1").val('');
           } else {
             alert(data.message || "오류가 발생했습니다.");
@@ -357,8 +370,8 @@
         })
         .catch(error => {
           $(".loding_pop_msg").hide();
-          alert("오류가 발생했습니다: " + error.message);
           console.error('Error:', error);
+          alert("오류가 발생했습니다: " + error.message);
         });
       });
 
@@ -370,8 +383,8 @@
 
       // 번호 매기기
       function numbering() {
-        $("#mytable2 tr").each(function(index) {
-          $(this).find("td:eq(1)").text(index);
+        $(".sch_tbody tr").each(function(index) {
+          $(this).find("td:eq(1)").text(index + 1);
         });
       }
 
