@@ -323,12 +323,17 @@
           method: "POST",
           contentType: "application/json",
           data: JSON.stringify({ keywords: keywords }),
+          beforeSend: function() {
+            console.log("서버리스 함수 호출 시작:", keywords);
+          },
           success: function(response) {
             console.log("서버리스 함수 응답:", response);
             $(".loding_pop_msg").hide();
             $(".sch_tbody").empty();
             
             if (response.status === 'success' && response.results && response.results.length > 0) {
+              let hasValidResults = false;
+              
               response.results.forEach((result, index) => {
                 if (result.error) {
                   // 오류 처리
@@ -340,6 +345,7 @@
                   $('.sch_tbody').append(errorTR);
                 } else {
                   // 성공 처리
+                  hasValidResults = true;
                   const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${result.total}">
                     <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
                     <td class="number">${index + 1}</td>
@@ -365,6 +371,18 @@
                   $('.sch_tbody').append(pushTR);
                 }
               });
+              
+              if (!hasValidResults) {
+                const noResultTR = `<tr>
+                  <td colspan="15" class="text-center text-red-500">
+                    모든 키워드에 대한 검색 결과를 가져오지 못했습니다.
+                  </td>
+                </tr>`;
+                $('.sch_tbody').append(noResultTR);
+              }
+              
+              // 입력창 비우기
+              $("#DataQ1").val('');
             } else {
               // 결과가 없거나 오류 발생
               const errorTR = `<tr>
@@ -385,6 +403,17 @@
               </td>
             </tr>`;
             $('.sch_tbody').append(errorTR);
+            
+            // 오류 세부 정보 표시
+            if (error.responseJSON) {
+              console.error('오류 세부 정보:', error.responseJSON);
+              const detailTR = `<tr>
+                <td colspan="15" class="text-center text-red-500">
+                  오류 세부 정보: ${JSON.stringify(error.responseJSON)}
+                </td>
+              </tr>`;
+              $('.sch_tbody').append(detailTR);
+            }
           }
         });
       });
