@@ -52,9 +52,10 @@ exports.handler = async function(event, context) {
     for (const keyword of keywords) {
       try {
         const currentTime = new Date().getTime();
-        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=1000&time=${currentTime}`;
+        // 첫 번째 API 호출 (totalSum 없이)
+        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`;
         
-        console.log(`API 호출: ${apiUrl}`);
+        console.log(`첫 번째 API 호출: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           method: 'GET',
@@ -69,75 +70,83 @@ exports.handler = async function(event, context) {
         }
 
         const data = await response.json();
-        console.log(`API 응답: ${JSON.stringify(data)}`);
+        console.log(`첫 번째 API 응답: ${JSON.stringify(data)}`);
         
-        // API 응답 구조 확인
-        if (data) {
-          // 응답 구조에 따라 데이터 추출
-          let pcSearches = 0;
-          let mobileSearches = 0;
-          let monthlyBlogPosts = 0;
-          let blogSaturation = '-';
-          let shopCategory = '-';
-          let pcClicks = 0;
-          let mobileClicks = 0;
-          let pcClickRate = '0%';
-          let mobileClickRate = '0%';
-          let competition = '-';
-          let avgAdExposure = 0;
-          
-          // 응답 구조에 따라 데이터 추출 로직
-          if (data.result) {
-            pcSearches = data.result.pcSearches || 0;
-            mobileSearches = data.result.mobileSearches || 0;
-            monthlyBlogPosts = data.result.monthlyBlogPosts || 0;
-            blogSaturation = data.result.blogSaturation || '-';
-            shopCategory = data.result.shopCategory || '-';
-            pcClicks = data.result.pcClicks || 0;
-            mobileClicks = data.result.mobileClicks || 0;
-            pcClickRate = data.result.pcClickRate || '0%';
-            mobileClickRate = data.result.mobileClickRate || '0%';
-            competition = data.result.competition || '-';
-            avgAdExposure = data.result.avgAdExposure || 0;
-          } else if (data.data) {
-            // 다른 가능한 응답 구조
-            pcSearches = data.data.pcSearches || 0;
-            mobileSearches = data.data.mobileSearches || 0;
-            monthlyBlogPosts = data.data.monthlyBlogPosts || 0;
-            blogSaturation = data.data.blogSaturation || '-';
-            shopCategory = data.data.shopCategory || '-';
-            pcClicks = data.data.pcClicks || 0;
-            mobileClicks = data.data.mobileClicks || 0;
-            pcClickRate = data.data.pcClickRate || '0%';
-            mobileClickRate = data.data.mobileClickRate || '0%';
-            competition = data.data.competition || '-';
-            avgAdExposure = data.data.avgAdExposure || 0;
-          }
-          
-          results.push({
-            keyword: keyword,
-            pc: pcSearches,
-            mobile: mobileSearches,
-            total: (parseInt(pcSearches) + parseInt(mobileSearches)),
-            monthBlog: monthlyBlogPosts,
-            blogSaturation: blogSaturation,
-            shopCategory: shopCategory,
-            pcClick: pcClicks,
-            mobileClick: mobileClicks,
-            pcClickRate: pcClickRate,
-            mobileClickRate: mobileClickRate,
-            competition: competition,
-            avgAdCount: avgAdExposure
-          });
-        } else {
-          results.push({
-            keyword: keyword,
-            error: '데이터를 가져올 수 없습니다.'
-          });
+        // 첫 번째 API 응답에서 검색량 추출
+        let pcSearches = 0;
+        let mobileSearches = 0;
+        let total = 0;
+        
+        if (data.result) {
+          pcSearches = data.result.pcSearches || 0;
+          mobileSearches = data.result.mobileSearches || 0;
+        } else if (data.data) {
+          pcSearches = data.data.pcSearches || 0;
+          mobileSearches = data.data.mobileSearches || 0;
         }
-
-        // API 호출 간 딜레이
-        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        total = parseInt(pcSearches) + parseInt(mobileSearches);
+        
+        // 검색량이 있으면 두 번째 API 호출
+        if (total > 0) {
+          // 두 번째 API 호출 (totalSum 포함)
+          const secondApiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=${total}&time=${new Date().getTime()}`;
+          
+          console.log(`두 번째 API 호출: ${secondApiUrl}`);
+          
+          const secondResponse = await fetch(secondApiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (secondResponse.ok) {
+            const secondData = await secondResponse.json();
+            console.log(`두 번째 API 응답: ${JSON.stringify(secondData)}`);
+            
+            // 두 번째 API 응답이 성공적이면 해당 데이터 사용
+            if (secondData && secondData.status && secondData.result) {
+              results.push({
+                keyword: keyword,
+                pc: secondData.result.pcSearches || pcSearches,
+                mobile: secondData.result.mobileSearches || mobileSearches,
+                total: total,
+                monthBlog: secondData.result.monthlyBlogPosts || 0,
+                blogSaturation: secondData.result.blogSaturation || '-',
+                shopCategory: secondData.result.shopCategory || '-',
+                pcClick: secondData.result.pcClicks || 0,
+                mobileClick: secondData.result.mobileClicks || 0,
+                pcClickRate: secondData.result.pcClickRate || '0%',
+                mobileClickRate: secondData.result.mobileClickRate || '0%',
+                competition: secondData.result.competition || '-',
+                avgAdCount: secondData.result.avgAdExposure || 0
+              });
+              
+              // API 호출 간 딜레이
+              await new Promise(resolve => setTimeout(resolve, 500));
+              return;
+            }
+          }
+        }
+        
+        // 두 번째 API 호출이 실패하거나 검색량이 없는 경우, 첫 번째 결과 사용
+        results.push({
+          keyword: keyword,
+          pc: pcSearches,
+          mobile: mobileSearches,
+          total: total,
+          monthBlog: 0,
+          blogSaturation: '-',
+          shopCategory: '-',
+          pcClick: 0,
+          mobileClick: 0,
+          pcClickRate: '0%',
+          mobileClickRate: '0%',
+          competition: '-',
+          avgAdCount: 0
+        });
       } catch (error) {
         console.error(`Error for keyword ${keyword}:`, error);
         results.push({

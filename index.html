@@ -327,7 +327,6 @@
               dataType: "JSON",
               data: {
                 'keyword': keyword,
-                'totalSum': '1000',
                 'time': currentTime
               },
               success: function(response) {
@@ -363,34 +362,136 @@
               } else {
                 // 성공 처리
                 const data = result.data;
-                if (data && data.status) {
-                  const pcSearches = data.result?.pcSearches || 0;
-                  const mobileSearches = data.result?.mobileSearches || 0;
-                  const total = parseInt(pcSearches) + parseInt(mobileSearches);
+                console.log("API 응답 데이터 구조:", data);
+                
+                // 첫 번째 API 호출 결과에서 PC 및 모바일 검색량 추출
+                if (data) {
+                  let pcSearches = 0;
+                  let mobileSearches = 0;
+                  let total = 0;
                   
-                  const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
-                    <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
-                    <td class="number"></td>
-                    <td style="text-align:center">
-                      <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
-                        ${result.keyword}
-                      </a>
-                    </td>
-                    <td style="text-align:right">${comma(pcSearches)}</td>
-                    <td style="text-align:right">${comma(mobileSearches)}</td>
-                    <td style="text-align:right">${comma(total)}</td>
-                    <td style="text-align:right">${comma(data.result?.monthlyBlogPosts || 0)}</td>
-                    <td style="text-align:center">${data.result?.blogSaturation || '-'}</td>
-                    <td style="text-align:center">${data.result?.shopCategory || '-'}</td>
-                    <td style="text-align:right">${comma(data.result?.pcClicks || 0)}</td>
-                    <td style="text-align:right">${comma(data.result?.mobileClicks || 0)}</td>
-                    <td style="text-align:right">${data.result?.pcClickRate || '0%'}</td>
-                    <td style="text-align:center">${data.result?.mobileClickRate || '0%'}</td>
-                    <td style="text-align:center">${data.result?.competition || '-'}</td>
-                    <td style="text-align:right">${comma(data.result?.avgAdExposure || 0)}</td>
-                  </tr>`;
+                  // 응답 구조에 따라 데이터 추출
+                  if (data.result) {
+                    pcSearches = data.result.pcSearches || 0;
+                    mobileSearches = data.result.mobileSearches || 0;
+                  } else if (data.data) {
+                    pcSearches = data.data.pcSearches || 0;
+                    mobileSearches = data.data.mobileSearches || 0;
+                  }
                   
-                  $('.sch_tbody').append(pushTR);
+                  total = parseInt(pcSearches) + parseInt(mobileSearches);
+                  
+                  // 검색량이 있으면 두 번째 API 호출 수행
+                  if (total > 0) {
+                    // 두 번째 API 호출 (totalSum 포함)
+                    $.ajax({
+                      url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
+                      method: "GET",
+                      async: false, // 동기 호출
+                      dataType: "JSON",
+                      data: {
+                        'keyword': result.keyword,
+                        'totalSum': total,
+                        'time': new Date().getTime()
+                      },
+                      success: function(secondResponse) {
+                        console.log(`키워드 ${result.keyword} 두 번째 응답:`, secondResponse);
+                        
+                        if (secondResponse && secondResponse.status) {
+                          // 두 번째 API 호출 결과로 데이터 업데이트
+                          if (secondResponse.result) {
+                            pcSearches = secondResponse.result.pcSearches || pcSearches;
+                            mobileSearches = secondResponse.result.mobileSearches || mobileSearches;
+                            
+                            const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
+                              <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
+                              <td class="number"></td>
+                              <td style="text-align:center">
+                                <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
+                                  ${result.keyword}
+                                </a>
+                              </td>
+                              <td style="text-align:right">${comma(pcSearches)}</td>
+                              <td style="text-align:right">${comma(mobileSearches)}</td>
+                              <td style="text-align:right">${comma(total)}</td>
+                              <td style="text-align:right">${comma(secondResponse.result?.monthlyBlogPosts || 0)}</td>
+                              <td style="text-align:center">${secondResponse.result?.blogSaturation || '-'}</td>
+                              <td style="text-align:center">${secondResponse.result?.shopCategory || '-'}</td>
+                              <td style="text-align:right">${comma(secondResponse.result?.pcClicks || 0)}</td>
+                              <td style="text-align:right">${comma(secondResponse.result?.mobileClicks || 0)}</td>
+                              <td style="text-align:right">${secondResponse.result?.pcClickRate || '0%'}</td>
+                              <td style="text-align:center">${secondResponse.result?.mobileClickRate || '0%'}</td>
+                              <td style="text-align:center">${secondResponse.result?.competition || '-'}</td>
+                              <td style="text-align:right">${comma(secondResponse.result?.avgAdExposure || 0)}</td>
+                            </tr>`;
+                            
+                            $('.sch_tbody').append(pushTR);
+                          }
+                        } else {
+                          // 두 번째 API 호출 실패 시 첫 번째 결과로 표시
+                          const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
+                            <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
+                            <td class="number"></td>
+                            <td style="text-align:center">
+                              <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
+                                ${result.keyword}
+                              </a>
+                            </td>
+                            <td style="text-align:right">${comma(pcSearches)}</td>
+                            <td style="text-align:right">${comma(mobileSearches)}</td>
+                            <td style="text-align:right">${comma(total)}</td>
+                            <td style="text-align:right">-</td>
+                            <td style="text-align:center">-</td>
+                            <td style="text-align:center">-</td>
+                            <td style="text-align:right">-</td>
+                            <td style="text-align:right">-</td>
+                            <td style="text-align:right">-</td>
+                            <td style="text-align:center">-</td>
+                            <td style="text-align:center">-</td>
+                            <td style="text-align:right">-</td>
+                          </tr>`;
+                          
+                          $('.sch_tbody').append(pushTR);
+                        }
+                      },
+                      error: function(error) {
+                        console.error(`키워드 ${result.keyword} 두 번째 API 호출 오류:`, error);
+                        
+                        // 오류 발생 시 첫 번째 결과로 표시
+                        const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
+                          <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
+                          <td class="number"></td>
+                          <td style="text-align:center">
+                            <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
+                              ${result.keyword}
+                            </a>
+                          </td>
+                          <td style="text-align:right">${comma(pcSearches)}</td>
+                          <td style="text-align:right">${comma(mobileSearches)}</td>
+                          <td style="text-align:right">${comma(total)}</td>
+                          <td style="text-align:right">-</td>
+                          <td style="text-align:center">-</td>
+                          <td style="text-align:center">-</td>
+                          <td style="text-align:right">-</td>
+                          <td style="text-align:right">-</td>
+                          <td style="text-align:right">-</td>
+                          <td style="text-align:center">-</td>
+                          <td style="text-align:center">-</td>
+                          <td style="text-align:right">-</td>
+                        </tr>`;
+                        
+                        $('.sch_tbody').append(pushTR);
+                      }
+                    });
+                  } else {
+                    // 검색량이 없는 경우
+                    const errorTR = `<tr>
+                      <td colspan="15" class="text-center text-red-500">
+                        ${result.keyword}: 검색량이 없습니다.
+                      </td>
+                    </tr>`;
+                    $('.sch_tbody').append(errorTR);
+                  }
                 } else {
                   const errorTR = `<tr>
                     <td colspan="15" class="text-center text-red-500">
