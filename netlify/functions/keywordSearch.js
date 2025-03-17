@@ -52,7 +52,7 @@ exports.handler = async function(event, context) {
     for (const keyword of keywords) {
       try {
         const currentTime = new Date().getTime();
-        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`;
+        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&totalSum=1000&time=${currentTime}`;
         
         console.log(`API 호출: ${apiUrl}`);
         
