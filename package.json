@@ -1,16 +1,16 @@
 {
-  "name": "keyword-search-app",
+  "name": "keyword-search-volume",
   "version": "1.0.0",
-  "description": "키워드 검색량 조회 및 견적 생성 애플리케이션",
-  "main": "index.html",
+  "description": "네이버 키워드 검색량 조회 서비스",
+  "main": "index.js",
   "scripts": {
-    "start": "netlify dev"
+    "dev": "netlify dev"
   },
   "dependencies": {
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^2.6.9"
   },
   "devDependencies": {
-    "netlify-cli": "^12.0.0"
+    "netlify-cli": "^15.0.0"
   },
   "keywords": [],
   "author": "",

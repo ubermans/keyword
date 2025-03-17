@@ -1,10 +1,10 @@
 const fetch = require('node-fetch');
-const https = require('https');
 
 // SSL 인증서 검증을 비활성화하는 에이전트 생성
-const agent = new https.Agent({
-  rejectUnauthorized: false
-});
+// const https = require('https');
+// const agent = new https.Agent({
+//   rejectUnauthorized: false
+// });
 
 // 네이버 API 키 설정 - 환경 변수에서 가져오거나 기본값 사용
 // 실제 배포 시에는 Netlify 대시보드에서 환경 변수로 설정해야 합니다
@@ -70,6 +70,9 @@ exports.handler = async function(event, context) {
         })
       };
     }
+    
+    // 로그 추가
+    console.log(`요청 받은 키워드: ${JSON.stringify(keywords)}`);
     
     // 키워드 유효성 검사
     if (!keywords || keywords.length === 0) {
@@ -145,8 +148,10 @@ exports.handler = async function(event, context) {
           mobile: searchVolumeData.mobile
         });
         
+        console.log(`키워드 "${keyword}" 처리 완료:`, searchVolumeData);
+        
         // API 호출 간 딜레이
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
         console.error(`Error for keyword ${keyword}:`, error);
@@ -218,7 +223,11 @@ async function getSearchVolumeFromNaver(keyword) {
         try {
           console.log(`API 호출 시도 ${attempt}/${maxRetries}: ${url}`);
           
-          const response = await fetch(url, options);
+          // SSL 검증 비활성화 에이전트 제거
+          const response = await fetch(url, {
+            ...options,
+            // agent 제거
+          });
           
           if (!response.ok) {
             const errorText = await response.text();
@@ -241,7 +250,7 @@ async function getSearchVolumeFromNaver(keyword) {
           }
           
           const data = await response.json();
-          console.log(`API 응답 성공: ${url}`);
+          console.log(`API 응답 성공: ${url.substring(0, 100)}...`);
           return data;
         } catch (error) {
           console.error(`API 호출 실패 (시도 ${attempt}/${maxRetries}):`, error.message);
@@ -269,36 +278,16 @@ async function getSearchVolumeFromNaver(keyword) {
       timestamp: getTimestamp()
     };
     
-    // 다양한 검색 API 엔드포인트 시도
+    // API 엔드포인트 단순화 (복잡한 구조 대신 더 단순한 접근법 사용)
     const apiEndpoints = [
       {
-        name: '웹 검색 (PC)',
-        url: `https://openapi.naver.com/v1/search/webkr.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
+        name: '웹 검색',
+        url: `https://openapi.naver.com/v1/search/blog.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}`,
         device: 'pc'
       },
       {
-        name: '블로그 검색 (PC)',
-        url: `https://openapi.naver.com/v1/search/blog.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
-        device: 'pc'
-      },
-      {
-        name: '뉴스 검색 (PC)',
-        url: `https://openapi.naver.com/v1/search/news.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
-        device: 'pc'
-      },
-      {
-        name: '웹 검색 (모바일)',
-        url: `https://openapi.naver.com/v1/search/webkr.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
-        device: 'mobile'
-      },
-      {
-        name: '블로그 검색 (모바일)',
-        url: `https://openapi.naver.com/v1/search/blog.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
-        device: 'mobile'
-      },
-      {
-        name: '뉴스 검색 (모바일)',
-        url: `https://openapi.naver.com/v1/search/news.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}&timestamp=${apiParams.timestamp}`,
+        name: '모바일 검색',
+        url: `https://openapi.naver.com/v1/search/blog.json?query=${apiParams.query}&display=${apiParams.display}&start=${apiParams.start}&sort=${apiParams.sort}`,
         device: 'mobile'
       }
     ];
@@ -310,15 +299,34 @@ async function getSearchVolumeFromNaver(keyword) {
     let pcTotal = 0;
     let mobileTotal = 0;
     
+    // 간단한 임시 데이터로 테스트 (실제 API 호출이 작동하지 않을 경우)
+    // 디버깅 용도로만 사용하고, 실제 데이터가 필요할 때는 이 부분을 주석 처리하거나 제거하세요
+    const useTestData = false;
+    if (useTestData) {
+      console.log('테스트 데이터 모드: 실제 API 호출 대신 가상 데이터 사용');
+      const testTotal = (keyword.length * 100) + 500;
+      const testPc = Math.floor(testTotal * 0.3);
+      const testMobile = testTotal - testPc;
+      
+      // 로그 기록
+      console.log(`테스트 검색량: ${testTotal} (PC: ${testPc}, 모바일: ${testMobile})`);
+      
+      return {
+        total: testTotal,
+        pc: testPc,
+        mobile: testMobile
+      };
+    }
+    
     // 모든 API 엔드포인트 순회
     for (const endpoint of apiEndpoints) {
       try {
-        console.log(`네이버 ${endpoint.name} API 호출: ${endpoint.url}`);
+        console.log(`네이버 ${endpoint.name} API 호출 준비: ${endpoint.url.substring(0, 60)}...`);
         
         const data = await fetchWithRetry(endpoint.url, {
           method: 'GET',
-          headers: naverHeaders,
-          agent: agent // SSL 인증서 검증 비활성화
+          headers: naverHeaders
+          // agent 제거
         });
         
         // 검색 결과 수 추출
@@ -331,14 +339,14 @@ async function getSearchVolumeFromNaver(keyword) {
         });
         
         // PC와 모바일 검색량 누적
-        if (endpoint.device === 'pc' && total > pcTotal) {
-          pcTotal = total;
-        } else if (endpoint.device === 'mobile' && total > mobileTotal) {
-          mobileTotal = total;
+        if (endpoint.device === 'pc') {
+          pcTotal = Math.max(pcTotal, total);
+        } else if (endpoint.device === 'mobile') {
+          mobileTotal = Math.max(mobileTotal, total);
         }
         
         // API 호출 간 딜레이 (네이버 API 호출 제한 방지)
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
       } catch (error) {
         console.error(`네이버 ${endpoint.name} API 호출 실패:`, error.message);
       }
