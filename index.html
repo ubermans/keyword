@@ -321,6 +321,8 @@
         const promises = keywords.map(keyword => {
           return new Promise((resolve, reject) => {
             const currentTime = new Date().getTime();
+            
+            // 마피아넷 사이트와 동일한 파라미터 사용
             $.ajax({
               url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
               method: "GET",
@@ -330,7 +332,14 @@
                 'time': currentTime,
                 'device': 'pc',
                 'auth': 'mapia',
-                'source': 'direct'
+                'source': 'direct',
+                'referer': 'https://mapia.net/',
+                'user-agent': navigator.userAgent,
+                'x-requested-with': 'XMLHttpRequest'
+              },
+              headers: {
+                'Referer': 'https://mapia.net/',
+                'Origin': 'https://mapia.net'
               },
               success: function(response) {
                 console.log(`키워드 ${keyword} 응답:`, response);
@@ -398,7 +407,14 @@
                         'time': new Date().getTime(),
                         'device': 'pc',
                         'auth': 'mapia',
-                        'source': 'direct'
+                        'source': 'direct',
+                        'referer': 'https://mapia.net/',
+                        'user-agent': navigator.userAgent,
+                        'x-requested-with': 'XMLHttpRequest'
+                      },
+                      headers: {
+                        'Referer': 'https://mapia.net/',
+                        'Origin': 'https://mapia.net'
                       },
                       success: function(secondResponse) {
                         console.log(`키워드 ${result.keyword} 두 번째 응답:`, secondResponse);
