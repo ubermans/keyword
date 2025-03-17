@@ -3,692 +3,590 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>키워드 조회 및 견적 생성기</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- jQuery CDN -->
+  <title>네이버 키워드 검색량 조회</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      background-color: #f7f9fc;
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f8f9fa;
+      color: #212529;
     }
     .container {
-      max-width: 1200px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 20px;
     }
-    @media print {
-      .no-print {
-        display: none;
-      }
-      body {
-        background-color: white;
-      }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .header h1 {
+      color: #4CAF50;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .header p {
+      color: #6c757d;
+      font-size: 16px;
+    }
+    .search-box {
+      background: white;
+      border-radius: 10px;
+      padding: 25px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .search-input {
+      position: relative;
+      margin-bottom: 15px;
+    }
+    .search-input textarea {
+      width: 100%;
+      height: 100px;
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      border-radius: 5px;
+      font-size: 16px;
+      resize: none;
+    }
+    .search-input textarea:focus {
+      border-color: #4CAF50;
+      outline: none;
+    }
+    .search-button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .search-button:hover {
+      background: #388E3C;
+    }
+    .search-button:disabled {
+      background: #9E9E9E;
+      cursor: not-allowed;
+    }
+    .search-tips {
+      margin-top: 10px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    .results-table {
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: #f8f9fa;
+      padding: 15px;
+      text-align: center;
+      font-weight: 600;
+      color: #495057;
+      border-bottom: 2px solid #e9ecef;
+    }
+    td {
+      padding: 15px;
+      text-align: center;
+      border-bottom: 1px solid #e9ecef;
+      vertical-align: middle;
+    }
+    tr:hover {
+      background: #f8f9fa;
+    }
+    .keyword-link {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .keyword-link:hover {
+      text-decoration: underline;
+    }
+    .external-link {
+      color: #28a745;
+      margin-left: 5px;
+    }
+    .error-message {
+      color: #dc3545;
+      font-weight: 500;
+    }
+    .loading {
+      text-align: center;
+      padding: 30px;
+      color: #6c757d;
+    }
+    .loading i {
+      margin-right: 10px;
+    }
+    .no-results {
+      padding: 30px;
+      text-align: center;
+      color: #6c757d;
+    }
+    .graph-container {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .graph-title {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 600;
+      color: #495057;
+    }
+    .graph-canvas {
+      width: 100%;
+      height: 300px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    @media (max-width: 768px) {
       .container {
-        padding: 0;
+        padding: 10px;
       }
-    }
-    .keyword-table th {
-      background-color: #f3f4f6;
-      padding: 8px;
-      border: 1px solid #e5e7eb;
-    }
-    .keyword-table td {
-      padding: 8px;
-      border: 1px solid #e5e7eb;
+      .search-box {
+        padding: 15px;
+      }
+      th, td {
+        padding: 10px 5px;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- 로딩 메시지 -->
-    <div class="loding_pop_msg fixed hidden inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white p-6 rounded-lg shadow-lg flex items-center gap-4">
-        <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-        <h3 class="text-lg font-medium">조회중입니다. 잠시만 기다려주세요</h3>
+    <div class="header">
+      <h1>네이버 키워드 검색량 조회</h1>
+      <p>네이버 API를 통해 키워드 검색량을 조회합니다</p>
+    </div>
+
+    <div class="search-box">
+      <div class="search-input">
+        <textarea id="keywordInput" placeholder="검색할 키워드를 입력하세요. 쉼표(,)로 구분하여 여러 키워드를 검색할 수 있습니다. (최대 5개)"></textarea>
+      </div>
+      <button id="searchButton" class="search-button">
+        <i class="fa fa-search"></i> 검색하기
+      </button>
+      <div class="search-tips">
+        <p>* 쉼표(,)로 구분하여 최대 5개까지 키워드를 한 번에 검색할 수 있습니다.</p>
+        <p>* 특수문자는 검색이 불가능합니다.</p>
+        <p>* 실제 데이터만 표시됩니다. API 호출에 실패할 경우 오류 메시지가 표시됩니다.</p>
       </div>
     </div>
 
-    <!-- 탭 메뉴 -->
-    <div class="mb-6">
-      <div class="border-b border-gray-200">
-        <nav class="-mb-px flex" aria-label="Tabs">
-          <button id="searchTab" class="border-b-2 border-blue-500 py-4 px-6 text-sm font-medium text-blue-600">
-            키워드 조회
-          </button>
-          <button id="estimateTab" class="border-b-2 border-transparent py-4 px-6 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-            견적 생성
-          </button>
-        </nav>
-      </div>
+    <div class="graph-container" id="graphContainer" style="display: none;">
+      <div class="graph-title">월별 검색량 그래프</div>
+      <canvas id="searchVolumeChart" class="graph-canvas"></canvas>
     </div>
 
-    <!-- 키워드 조회 섹션 -->
-    <div id="searchSection" class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 class="text-2xl font-bold mb-4">키워드 조회</h2>
-      
-      <div class="mb-4">
-        <textarea 
-          id="DataQ1"
-          rows="6"
-          class="w-full p-3 border border-gray-300 rounded-md"
-          placeholder="한 줄에 하나씩 입력하세요. (최대 100개까지)"
-        ></textarea>
-      </div>
-
-      <div class="flex items-center gap-4 mb-4">
-        <form id="file_form" class="flex-1">
-          <div class="flex gap-2">
-            <input type="file" class="exel_upload hidden" name="file" accept=".xls,.xlsx"/>
-            <input type="text" class="file_name_box flex-1 p-2 border rounded" readonly/>
-            <button type="button" class="exel_up_btn bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-              엑셀업로드
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div class="flex gap-2 mb-4">
-        <button id="SDsave" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-          조회하기
-        </button>
-        <button class="delete_data bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300">
-          입력값지우기
-        </button>
-      </div>
-
-      <div class="text-sm text-gray-600">
-        ※ 검색어에 특수문자를 사용할 수 없습니다.
-        <span id="RegMessage" class="text-red-500"></span>
-      </div>
-
-      <div class="text-sm text-gray-600 mt-2">
-        ※ 검색량 조회는 금일을 제외한 최근 한달간 네이버 통합 검색에서 키워드가 검색된 횟수입니다.
-      </div>
-
-      <!-- 조회 결과 -->
-      <div class="mt-8">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold">키워드 조회 결과</h3>
-          <div class="flex gap-2">
-            <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">다운로드</button>
-            <button class="rese_btn bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">검색값초기화</button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="keyword-table w-full" id="mytable2">
-            <thead>
-              <tr>
-                <th><input type="checkbox" class="full_check"/></th>
-                <th>NO</th>
-                <th>키워드</th>
-                <th>검색수합계</th>
-                <th>PC</th>
-                <th>Mobile</th>
-                <th>데이터 소스</th>
-              </tr>
-            </thead>
-            <tbody class="sch_tbody">
-              <tr class="null_tr">
-                <td colspan="7" class="text-center py-4">키워드를 조회하십시오.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div class="results-table">
+      <table>
+        <thead>
+          <tr>
+            <th>키워드</th>
+            <th>총 검색량</th>
+            <th>PC 검색량</th>
+            <th>모바일 검색량</th>
+          </tr>
+        </thead>
+        <tbody id="resultsTableBody">
+          <!-- 결과가 여기에 표시됩니다 -->
+          <tr>
+            <td colspan="4" class="loading">
+              <i class="fa fa-info-circle"></i> 검색 결과가 여기에 표시됩니다.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- 견적 생성 섹션 -->
-    <div id="estimateSection" class="hidden">
-      <div class="no-print bg-white p-6 rounded-lg shadow-md mb-6">
-        <h1 class="text-2xl font-bold mb-4">키워드 견적 생성기</h1>
-        
-        <div class="mb-4">
-          <label class="block text-gray-700 mb-2 font-medium">
-            키워드 정보 입력 (형식: 키워드 검색량 가격)
-          </label>
-          <textarea 
-            id="inputText"
-            rows="6"
-            class="w-full p-3 border border-gray-300 rounded-md"
-            placeholder="양재역 헬스 1,020 60&#10;양재역 헬스장 2,200 65&#10;양재 헬스장 570 35&#10;양재 PT 360 40"
-          ></textarea>
-          <div class="text-sm text-gray-500 mt-1">
-            각 줄에 "키워드 검색량 가격" 형식으로 입력하세요. 가격은 만 단위입니다.
-          </div>
-        </div>
-        
-        <div class="flex space-x-2 mb-4">
-          <button 
-            id="generateBtn"
-            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-          >
-            견적서 생성
-          </button>
-          <button 
-            id="printBtn"
-            class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition"
-          >
-            인쇄하기
-          </button>
-          <button 
-            id="clearBtn"
-            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-100 transition"
-          >
-            초기화
-          </button>
-          <button 
-            id="sampleBtn"
-            class="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-100 transition"
-          >
-            샘플 데이터
-          </button>
-        </div>
-        
-        <div class="text-sm text-gray-600">
-          <h3 class="font-medium mb-1">사용 방법:</h3>
-          <ol class="list-decimal pl-5 space-y-1">
-            <li>각 줄에 "키워드 검색량 가격" 형식으로 입력하세요. (예: 양재역 헬스 1,020 60)</li>
-            <li>가격은 만원 단위입니다. (60 → 600,000원으로 자동 변환)</li>
-            <li>"견적서 생성" 버튼을 클릭하면 아래에 템플릿이 생성됩니다.</li>
-          </ol>
-        </div>
-      </div>
-      
-      <div id="reportContainer" class="hidden">
-        <!-- 여기에 보고서가 생성됩니다 -->
-      </div>
+    <div class="footer">
+      <p>검색된 키워드의 데이터는 네이버 API 기준 데이터입니다.</p>
+      <p>&copy; 2024 키워드 검색량 조회 서비스</p>
     </div>
   </div>
 
   <script>
-    // 페이지 로드 시 콘솔에 메시지 출력
-    console.log("페이지가 로드되었습니다.");
-    
-    // 탭 전환 기능
-    document.getElementById('searchTab').addEventListener('click', function() {
-      console.log("검색 탭 클릭됨");
-      document.getElementById('searchSection').classList.remove('hidden');
-      document.getElementById('estimateSection').classList.add('hidden');
-      this.classList.add('border-blue-500', 'text-blue-600');
-      this.classList.remove('border-transparent', 'text-gray-500');
-      document.getElementById('estimateTab').classList.remove('border-blue-500', 'text-blue-600');
-      document.getElementById('estimateTab').classList.add('border-transparent', 'text-gray-500');
-    });
-
-    document.getElementById('estimateTab').addEventListener('click', function() {
-      console.log("견적 탭 클릭됨");
-      document.getElementById('estimateSection').classList.remove('hidden');
-      document.getElementById('searchSection').classList.add('hidden');
-      this.classList.add('border-blue-500', 'text-blue-600');
-      this.classList.remove('border-transparent', 'text-gray-500');
-      document.getElementById('searchTab').classList.remove('border-blue-500', 'text-blue-600');
-      document.getElementById('searchTab').classList.add('border-transparent', 'text-gray-500');
-    });
-
-    // 키워드 조회 관련 함수들
-    function checkSpecial(str) {
-      var special_pattern = /[,\'\"\\]/gi;
-      return special_pattern.test(str);
-    }
-
-    function get_keyword_info(object) {
-      let currentTime = new Date().getTime();
-      const obj = object;
-      $.ajax({
-        url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
-        method: "GET",
-        async: true,
-        dataType: "JSON",
-        data: {
-          'keyword': obj.data('relkeyword'),
-          'totalSum': obj.data('totalsum'),
-          'time': currentTime
-        },
-        success: function(response) {
-          if(response.status) {
-            $.each(response.result, function(key, value) {
-              obj.find("." + key).html(value);
-            });
-          }
-        }
-      });
-    }
-
-    // 페이지 로드 완료 시 실행
     $(document).ready(function() {
-      console.log("jQuery가 로드되었습니다.");
-      
-      // 조회하기 버튼에 클릭 이벤트 리스너 추가
-      $("#SDsave").on("click", function() {
-        console.log("조회하기 버튼 클릭됨");
-        
-        // 입력값 검증
-        var txtBox = document.getElementById("DataQ1");
-        var lines = txtBox.value.split("\n");
-        
-        // 빈 입력 체크
-        if (lines.length <= 1 && lines[0] === '') {
-          alert('키워드를 입력해주세요.');
-          return;
+      let lastSearchedKeywords = [];
+      let searchVolumeChart = null;
+
+      // 천 단위 쉼표 포맷팅 함수
+      function formatNumber(number) {
+        if (number === 0 || number === '0' || number === '< 10') return '0';
+        if (!number) return '-';
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      // 키워드 유효성 검사 함수
+      function validateKeywords(keywordsText) {
+        if (!keywordsText.trim()) {
+          alert('검색할 키워드를 입력하세요.');
+          return false;
         }
 
-        // 라인 수 체크
-        if (lines.length > 100) {
-          var errStr = '최대 100 라인까지 입니다. 입력한 라인은 ' + lines.length + ' 입니다.';
-          document.getElementById("RegMessage").innerHTML = errStr;
-          return;
+        // 쉼표로 구분된 키워드 배열 생성
+        const keywords = keywordsText.split(',')
+          .map(k => k.trim())
+          .filter(k => k.length > 0);
+
+        if (keywords.length === 0) {
+          alert('유효한 키워드를 입력하세요.');
+          return false;
         }
 
-        // 특수문자 체크 및 키워드 정리
-        var errCount = 0;
-        var keywords = [];
-        for (var i = 0; i < lines.length; i++) {
-          var keyword = lines[i].trim();
-          if (keyword === '') continue;
-          
-          if (checkSpecial(keyword)) {
-            errCount++;
-          } else {
-            keywords.push(keyword);
+        if (keywords.length > 5) {
+          alert('키워드는 최대 5개까지만 검색 가능합니다.');
+          return false;
+        }
+
+        // 특수문자 체크 (쉼표 제외)
+        const specialCharRegex = /[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ]/g;
+        for (const keyword of keywords) {
+          if (specialCharRegex.test(keyword.replace(/,/g, ''))) {
+            alert('키워드에 특수문자를 사용할 수 없습니다.');
+            return false;
           }
         }
 
-        if (errCount > 0) {
-          var errStr = '검색어에 사용할 수 없는 특수문자( \' \" \\ , )가 확인되었습니다.( ' + errCount + ' 개)';
-          document.getElementById("RegMessage").innerHTML = errStr;
-          return;
+        // 이전 검색과 동일한지 확인
+        const currentKeywordsStr = keywords.sort().join(',');
+        const lastKeywordsStr = lastSearchedKeywords.sort().join(',');
+        
+        if (currentKeywordsStr === lastKeywordsStr) {
+          alert('동일한 키워드입니다. 다른 키워드를 검색해주세요.');
+          return false;
         }
 
-        console.log("키워드 목록:", keywords);
+        return keywords;
+      }
+
+      // 키워드 검색 함수
+      function searchKeywords() {
+        const keywordsText = $('#keywordInput').val();
+        const keywords = validateKeywords(keywordsText);
         
-        // 로딩 메시지 표시
-        $(".loding_pop_msg").show();
+        if (!keywords) return;
+
+        // 버튼 비활성화
+        $('#searchButton').prop('disabled', true);
         
-        // 서버리스 함수를 통해 API 호출
+        // 로딩 표시
+        $('#resultsTableBody').html(`
+          <tr>
+            <td colspan="4" class="loading">
+              <i class="fa fa-spinner fa-spin"></i> 키워드 검색량을 조회 중입니다...
+            </td>
+          </tr>
+        `);
+        
+        // 그래프 숨기기
+        $('#graphContainer').hide();
+        
+        // API 호출 타임스탬프
+        const timestamp = new Date().getTime();
+        
+        // API 호출
         $.ajax({
-          url: "/.netlify/functions/keywordSearch",
-          method: "POST",
-          contentType: "application/json",
-          data: JSON.stringify({ keywords: keywords }),
-          beforeSend: function() {
-            console.log("서버리스 함수 호출 시작:", keywords);
-          },
+          url: '/.netlify/functions/keywordSearch',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ keywords }),
           success: function(response) {
-            console.log("서버리스 함수 응답:", response);
-            $(".loding_pop_msg").hide();
-            $(".sch_tbody").empty();
+            console.log('API 응답:', response);
             
+            // 응답 처리
             if (response.status === 'success' && response.results && response.results.length > 0) {
-              let hasValidResults = false;
+              // 테이블에 결과 표시
+              displayResults(response.results);
               
-              response.results.forEach((result, index) => {
-                if (result.error) {
-                  // 오류 처리
-                  const errorTR = `<tr>
-                    <td colspan="7" class="text-center text-red-500 py-3">
-                      <div class="font-medium">${result.keyword}: API 호출 실패</div>
-                      <div class="text-sm mt-1">${result.error}</div>
-                    </td>
-                  </tr>`;
-                  $('.sch_tbody').append(errorTR);
-                } else {
-                  // 성공 처리
-                  hasValidResults = true;
-                  const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${result.total}">
-                    <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
-                    <td class="number">${index + 1}</td>
-                    <td style="text-align:center">
-                      <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
-                        ${result.keyword}
-                      </a>
-                    </td>
-                    <td style="text-align:right">${comma(result.total)}</td>
-                    <td style="text-align:right">${comma(result.pc)}</td>
-                    <td style="text-align:right">${comma(result.mobile)}</td>
-                    <td style="text-align:center">${result.source || '알 수 없음'}</td>
-                  </tr>`;
-                  
-                  $('.sch_tbody').append(pushTR);
-                }
-              });
+              // 그래프에 결과 표시
+              if (response.dataLab) {
+                displayGraph(response.dataLab);
+              }
               
-              if (!hasValidResults) {
-                const noResultTR = `<tr>
-                  <td colspan="7" class="text-center text-red-500 py-4">
-                    <div class="font-medium">모든 키워드에 대한 검색 결과를 가져오지 못했습니다.</div>
-                    <div class="text-sm mt-2">
-                      API 호출에 실패했습니다. 다음을 확인해주세요:
-                      <ul class="list-disc list-inside mt-1">
+              // 마지막 검색 키워드 업데이트
+              lastSearchedKeywords = keywords;
+            } else {
+              // 결과가 없거나 오류 발생
+              $('#resultsTableBody').html(`
+                <tr>
+                  <td colspan="4" class="no-results">
+                    <div class="error-message">데이터를 가져올 수 없습니다.</div>
+                    <div style="margin-top: 10px;">서버 응답: ${response.message || '알 수 없는 오류'}</div>
+                    <div style="margin-top: 15px;">
+                      <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">
+                        <li>네이버 API 키가 유효한지 확인하세요.</li>
                         <li>네트워크 연결 상태를 확인하세요.</li>
                         <li>잠시 후 다시 시도해보세요.</li>
                       </ul>
                     </div>
                   </td>
-                </tr>`;
-                $('.sch_tbody').append(noResultTR);
-              }
-              
-              // 입력창 비우기
-              $("#DataQ1").val('');
-            } else {
-              // 결과가 없거나 오류 발생
-              const errorTR = `<tr>
-                <td colspan="7" class="text-center text-red-500 py-4">
-                  <div class="font-medium">데이터를 가져올 수 없습니다.</div>
-                  <div class="text-sm mt-2">서버 응답: ${response.message || '알 수 없는 오류'}</div>
-                </td>
-              </tr>`;
-              $('.sch_tbody').append(errorTR);
+                </tr>
+              `);
             }
           },
-          error: function(error) {
-            console.error('서버리스 함수 오류:', error);
-            $(".loding_pop_msg").hide();
+          error: function(xhr, status, error) {
+            console.error('API 호출 오류:', error);
             
-            const errorTR = `<tr>
-              <td colspan="7" class="text-center text-red-500 py-4">
-                <div class="font-medium">서버 오류가 발생했습니다</div>
-                <div class="text-sm mt-2">${error.statusText || '알 수 없는 오류'}</div>
-              </td>
-            </tr>`;
-            $('.sch_tbody').empty().append(errorTR);
-            
-            // 오류 세부 정보 표시
-            if (error.responseJSON) {
-              console.error('오류 세부 정보:', error.responseJSON);
-              const detailTR = `<tr>
-                <td colspan="7" class="text-center text-red-500">
-                  <div class="text-sm">오류 세부 정보: ${JSON.stringify(error.responseJSON)}</div>
+            // 오류 메시지 표시
+            $('#resultsTableBody').html(`
+              <tr>
+                <td colspan="4" class="no-results">
+                  <div class="error-message">서버 오류가 발생했습니다</div>
+                  <div style="margin-top: 10px;">${xhr.status}: ${xhr.statusText || '알 수 없는 오류'}</div>
+                  <div style="margin-top: 15px;">
+                    <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">
+                      <li>서버 연결 상태를 확인하세요.</li>
+                      <li>네이버 API 키가 유효한지 확인하세요.</li>
+                      <li>잠시 후 다시 시도해보세요.</li>
+                      <li>문제가 지속되면 관리자에게 문의하세요.</li>
+                    </ul>
+                  </div>
                 </td>
-              </tr>`;
-              $('.sch_tbody').append(detailTR);
+              </tr>
+            `);
+          },
+          complete: function() {
+            // 버튼 활성화 (1초 후)
+            setTimeout(function() {
+              $('#searchButton').prop('disabled', false);
+            }, 1000);
+          }
+        });
+      }
+
+      // 검색 결과 표시 함수
+      function displayResults(results) {
+        let tableHtml = '';
+        let hasValidResults = false;
+        
+        results.forEach(result => {
+          if (result.error) {
+            // 오류 처리
+            tableHtml += `
+              <tr>
+                <td>${result.keyword}</td>
+                <td colspan="3" class="error-message">${result.error}</td>
+              </tr>
+            `;
+          } else {
+            // 성공 처리
+            hasValidResults = true;
+            tableHtml += `
+              <tr>
+                <td>
+                  <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" 
+                     target="_blank" class="keyword-link">
+                    ${result.keyword}
+                    <i class="fa fa-external-link external-link"></i>
+                  </a>
+                </td>
+                <td>${formatNumber(result.total)}</td>
+                <td>${formatNumber(result.pc)}</td>
+                <td>${formatNumber(result.mobile)}</td>
+              </tr>
+            `;
+          }
+        });
+        
+        if (!hasValidResults) {
+          tableHtml = `
+            <tr>
+              <td colspan="4" class="no-results">
+                <div class="error-message">모든 키워드에 대한 검색 결과를 가져오지 못했습니다.</div>
+                <div style="margin-top: 15px;">
+                  <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">
+                    <li>네트워크 연결 상태를 확인하세요.</li>
+                    <li>잠시 후 다시 시도해보세요.</li>
+                    <li>API 키가 유효한지 확인하세요.</li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          `;
+        }
+        
+        $('#resultsTableBody').html(tableHtml);
+      }
+
+      // 그래프 표시 함수
+      function displayGraph(dataLab) {
+        // 그래프 데이터 준비
+        const labels = []; // 월 정보를 담을 배열
+        const datasets = []; // 키워드별 데이터셋을 담을 배열
+        
+        // 색상 배열
+        const colors = [
+          'rgb(0,199,60)',  // Green
+          'rgb(234,84,151)', // Pink
+          'rgb(147,87,250)', // Purple
+          'rgb(252,176,45)', // Yellow
+          'rgb(106,209,194)' // Teal
+        ];
+        
+        // 기존 그래프 파괴
+        if (searchVolumeChart) {
+          searchVolumeChart.destroy();
+        }
+        
+        // 월별 데이터가 없을 경우 임시 데이터 생성
+        if (!dataLab.results || dataLab.results.length === 0) {
+          // 최근 12개월 데이터 생성
+          const today = new Date();
+          for (let i = 11; i >= 0; i--) {
+            const date = new Date(today);
+            date.setMonth(today.getMonth() - i);
+            const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+            labels.push(yearMonth);
+          }
+          
+          // 임시 데이터셋 생성
+          $('#graphContainer').hide();
+          return;
+        }
+        
+        // 실제 월별 데이터 처리
+        const startDate = new Date(dataLab.startDate);
+        const endDate = new Date(dataLab.endDate);
+        let currentDate = new Date(startDate);
+        
+        // 각 월별 라벨 생성
+        while (currentDate <= endDate) {
+          const yearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+          labels.push(yearMonth);
+          
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        
+        // 키워드별 데이터셋 생성
+        dataLab.results.forEach((result, index) => {
+          const keyword = result.keywords;
+          const data = [];
+          
+          // 각 월별 데이터 매핑
+          labels.forEach(label => {
+            // 해당 월의 데이터 찾기
+            const monthData = result.data.find(item => item.period === label);
+            
+            // 데이터가 있으면 사용, 없으면 0으로 설정
+            data.push(monthData ? monthData.ratio : 0);
+          });
+          
+          // 키워드 데이터셋 추가
+          datasets.push({
+            label: keyword,
+            data: data,
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '20',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            tension: 0.1,
+            fill: false
+          });
+        });
+        
+        // 그래프 생성
+        const ctx = document.getElementById('searchVolumeChart').getContext('2d');
+        searchVolumeChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels.map(label => {
+              const date = new Date(label);
+              return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+            }),
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: {
+                  display: false
+                },
+                ticks: {
+                  maxRotation: 45,
+                  minRotation: 45
+                }
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                  callback: function(value) {
+                    return value + '%';
+                  }
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  usePointStyle: true,
+                  padding: 15
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `${context.dataset.label}: ${context.raw}%`;
+                  }
+                }
+              }
             }
           }
         });
-      });
-
-      // 숫자에 콤마 추가하는 함수
-      function comma(str) {
-        str = String(str);
-        return str.replace(/(\d)(?=(?:\d{3})+(?!\d))/g, '$1,');
+        
+        // 그래프 표시
+        $('#graphContainer').show();
       }
 
-      // 번호 매기기
-      function numbering() {
-        $(".sch_tbody tr").each(function(index) {
-          $(this).find("td:eq(1)").text(index + 1);
-        });
-      }
-
-      // 엑셀 업로드 버튼 클릭
-      $(".exel_up_btn").click(function(){
-        $(".exel_upload").click();
+      // 검색 버튼 클릭 이벤트
+      $('#searchButton').click(function() {
+        searchKeywords();
       });
 
-      // 검색값 초기화
-      $(".rese_btn").click(function(){
-        var null_data = '<tr class="null_tr"><td colspan="7" class="text-center py-4">키워드를 조회하십시오.</td></tr>';
-        $(".sch_tbody").html(null_data);
-      });
-
-      // 입력값 지우기
-      $(".delete_data").click(function(){
-        $("#DataQ1").val("");
-        return false;
-      });
-
-      // 전체 선택 체크박스
-      $(".full_check").click(function(){
-        var chkbox = $("input[name='data_check[]']");
-        if(chkbox.is(":checked") == true){
-          chkbox.prop("checked", false);
-        } else {
-          chkbox.prop("checked", true);
+      // 엔터 키 이벤트
+      $('#keywordInput').keypress(function(e) {
+        if (e.which === 13 && !e.shiftKey) {
+          e.preventDefault();
+          searchKeywords();
         }
       });
 
-      // 선택 결과 다운로드
-      $(".result_title button:first").click(function(){
-        var form = "<form class='frm_down' method='post' action='./key_exel.php'></form>";
-        $("body").append(form);
-
-        var stamp_array = [];
-        var stamp_cnt = 0;
-        var chkbox2 = $("input[name='data_check[]']");
-        
-        for(i=0; i<chkbox2.length; i++) {
-          if (chkbox2[i].checked == true){
-            var parent = $(chkbox2[i]).parents("tr");
-            stamp_array[stamp_cnt] = chkbox2[i].value;
-            stamp_array[stamp_cnt] += "," + parent.find(".monthBlog").text().replace(/,/g, '');
-            stamp_array[stamp_cnt] += "," + parent.find(".blogSaturation").text();
-            stamp_array[stamp_cnt] += "," + parent.find(".shopCategory").text();
-            
-            var put = "<input type='hidden' name='result[]' value='" + stamp_array[stamp_cnt] + "'>";
-            $(".frm_down").append(put);
-            stamp_cnt++;
-          }
-        }
-
-        if(stamp_array.length == 0){
-          alert("다운로드할 키워드를 선택하여 주십시오.");
-          return false;
-        } else {
-          $(".frm_down").submit().remove();
-        }
-      });
-    });
-
-    // 기존 견적 생성 관련 코드
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log("DOM이 로드되었습니다. 견적 생성 기능 초기화.");
-      
-      // DOM 요소
-      const inputText = document.getElementById('inputText');
-      const generateBtn = document.getElementById('generateBtn');
-      const printBtn = document.getElementById('printBtn');
-      const clearBtn = document.getElementById('clearBtn');
-      const sampleBtn = document.getElementById('sampleBtn');
-      const reportContainer = document.getElementById('reportContainer');
-      
-      // 가격 변환 (60 → 600,000원)
-      function convertPrice(price) {
-        // 콤마 제거 후 숫자로 변환
-        const cleanPrice = price.toString().replace(/,/g, '');
-        const numPrice = parseInt(cleanPrice);
-        
-        if (isNaN(numPrice)) return 0;
-        
-        // 만원 단위로 변환 (60 → 600000)
-        return numPrice * 10000;
-      }
-      
-      // 숫자 형식: 천 단위 콤마
-      function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-      }
-      
-      // 템플릿 생성 함수
-      function generateReport() {
-        console.log("견적서 생성 함수 호출됨");
-        
-        // 입력값 가져오기
-        const lines = inputText.value.trim().split('\n');
-        if (lines.length === 0 || !inputText.value.trim()) {
-          alert("키워드 정보를 입력해 주세요.");
-          return;
-        }
-        
-        // 데이터 정리
-        const rows = [];
-        
-        lines.forEach(line => {
-          line = line.trim();
-          if (!line) return;
-          
-          // 공백으로 토큰 분리
-          const tokens = line.split(/\s+/);
-          
-          // 최소 3개 이상의 토큰이 필요 (키워드, 검색량, 가격)
-          if (tokens.length < 3) return;
-          
-          // 마지막 토큰을 가격으로, 마지막 직전 토큰을 검색량으로 처리
-          const priceStr = tokens.pop();
-          const volumeStr = tokens.pop();
-          
-          // 나머지 토큰을 키워드로 합치기
-          const keyword = tokens.join(' ');
-          
-          // 검색량 변환 (콤마 제거)
-          const searchVolume = parseInt(volumeStr.replace(/,/g, ''));
-          
-          // 가격 변환
-          const price = convertPrice(priceStr);
-          
-          // 유효한 데이터만 추가
-          if (keyword && !isNaN(searchVolume) && price > 0) {
-            rows.push({
-              keyword: keyword,
-              searchVolume: searchVolume,
-              price: price
-            });
-          }
-        });
-        
-        if (rows.length === 0) {
-          alert("유효한 데이터가 없습니다. 입력 형식을 확인해주세요.");
-          return;
-        }
-        
-        // 현재 날짜
-        const today = new Date();
-        const dateString = today.toLocaleDateString('ko-KR', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        });
-        const reportIdDate = today.toISOString().slice(0, 10).replace(/-/g, '');
-        
-        // 보고서 HTML 생성
-        let reportHTML = `
-          <div class="border border-gray-200 rounded-md overflow-hidden bg-white shadow-md">
-            <!-- 헤더 -->
-            <div class="bg-gray-800 text-white p-4 flex justify-between items-center">
-              <div>
-                <h2 class="text-xl font-bold">키워드 견적</h2>
-                <div class="text-sm mt-1">㈜비맵</div>
-              </div>
-              <div class="text-sm">${dateString}</div>
-            </div>
-            
-            <!-- 개요 -->
-            <div class="bg-gray-100 p-4 text-sm">
-              개요: 월간 검색량 및 키워드 가격 분석 데이터
-            </div>
-            
-            <!-- 테이블 -->
-            <div class="overflow-x-auto">
-              <table class="w-full">
-                <thead>
-                  <tr class="bg-gray-800 text-white">
-                    <th class="px-4 py-2 text-left">키워드</th>
-                    <th class="px-4 py-2 text-right">월 검색량</th>
-                    <th class="px-4 py-2 text-right">키워드 가격</th>
-                  </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        rows.forEach((row, index) => {
-          reportHTML += `
-            <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-              <td class="px-4 py-3 border-t">${row.keyword}</td>
-              <td class="px-4 py-3 text-right border-t">${formatNumber(row.searchVolume)}회</td>
-              <td class="px-4 py-3 text-right border-t bg-blue-50">${formatNumber(row.price)}원</td>
-            </tr>
-          `;
-        });
-        
-        reportHTML += `
-                </tbody>
-              </table>
-            </div>
-            
-            <!-- 푸터 -->
-            <div class="bg-gray-100 p-3 text-sm text-gray-600">
-              ※ 출처: 네이버 키워드 도구 및 시장 조사
-            </div>
-            
-            <div class="p-2 text-right text-xs text-gray-500">
-              Report ID: KW-${reportIdDate} | ㈜비맵
-            </div>
-            
-            <div class="text-center text-xs text-gray-400 p-2">
-              CONFIDENTIAL MARKET ANALYSIS
-            </div>
-          </div>
-        `;
-        
-        reportContainer.innerHTML = reportHTML;
-        reportContainer.classList.remove('hidden');
-        
-        console.log("견적서 생성 완료");
-      }
-      
-      // 인쇄 기능
-      function printReport() {
-        console.log("인쇄 기능 호출됨");
-        window.print();
-      }
-      
-      // 초기화 기능
-      function clearAll() {
-        console.log("초기화 기능 호출됨");
-        inputText.value = '';
-        reportContainer.innerHTML = '';
-        reportContainer.classList.add('hidden');
-      }
-      
-      // 샘플 데이터 채우기
-      function fillSampleData() {
-        console.log("샘플 데이터 채우기 호출됨");
-        inputText.value = `양재역 헬스 1,020 60
-양재역 헬스장 2,200 65
-양재 헬스장 570 35
-양재 PT 360 40`;
-      }
-      
-      // 이벤트 리스너 등록
-      if (generateBtn) {
-        console.log("견적서 생성 버튼 이벤트 리스너 등록");
-        generateBtn.addEventListener('click', generateReport);
-      } else {
-        console.error("견적서 생성 버튼을 찾을 수 없습니다.");
-      }
-      
-      if (printBtn) {
-        printBtn.addEventListener('click', printReport);
-      } else {
-        console.error("인쇄 버튼을 찾을 수 없습니다.");
-      }
-      
-      if (clearBtn) {
-        clearBtn.addEventListener('click', clearAll);
-      } else {
-        console.error("초기화 버튼을 찾을 수 없습니다.");
-      }
-      
-      if (sampleBtn) {
-        sampleBtn.addEventListener('click', fillSampleData);
-      } else {
-        console.error("샘플 데이터 버튼을 찾을 수 없습니다.");
-      }
-      
-      // 페이지 로드 시 샘플 데이터 채우기
-      fillSampleData();
+      // 페이지 로드 시 기본 키워드 설정
+      $('#keywordInput').val('네이버');
     });
   </script>
 </body>
