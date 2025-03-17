@@ -1,0 +1,25 @@
+{
+  "name": "keyword-search-volume",
+  "version": "1.0.0",
+  "description": "네이버 키워드 검색량 조회 서비스",
+  "main": "index.js",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo \"No build step required\""
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.9"
+  },
+  "devDependencies": {
+    "netlify-cli": "^15.0.0"
+  },
+  "keywords": [
+    "keyword",
+    "search",
+    "volume",
+    "naver",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT"
+} 
