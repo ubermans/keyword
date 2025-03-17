@@ -80,17 +80,20 @@ exports.handler = async function(event, context) {
         // 웹 검색 결과 가져오기
         const webResponse = await fetch(webSearchUrl, {
           method: 'GET',
-          headers: naverHeaders
+          headers: naverHeaders,
+          agent: agent // SSL 인증서 검증 비활성화
         });
         
         // 블로그 검색 결과 가져오기
         const blogResponse = await fetch(blogSearchUrl, {
           method: 'GET',
-          headers: naverHeaders
+          headers: naverHeaders,
+          agent: agent // SSL 인증서 검증 비활성화
         });
         
+        // API 응답 상태 확인
         if (!webResponse.ok || !blogResponse.ok) {
-          throw new Error(`네이버 API 요청 실패: ${webResponse.status}, ${blogResponse.status}`);
+          throw new Error(`네이버 API 요청 실패: 웹 검색(${webResponse.status}), 블로그 검색(${blogResponse.status})`);
         }
         
         const webData = await webResponse.json();
@@ -155,56 +158,11 @@ exports.handler = async function(event, context) {
       } catch (error) {
         console.error(`Error for keyword ${keyword}:`, error);
         
-        // API 호출 실패 시 대체 데이터 제공
-        if (error.message.includes('네이버 API 요청 실패')) {
-          console.log(`네이버 API 호출에 실패했습니다. 대체 데이터를 생성합니다.`);
-          
-          // 대체 데이터 생성 - 더 현실적인 값으로 수정
-          // 검색 결과 수 범위를 무작위로 생성
-          const randomWebTotal = Math.floor(Math.random() * 100000) + 100;
-          
-          // 검색량 계산 (위의 계산 방식과 동일)
-          let estimatedSearchVolume = 0;
-          
-          if (randomWebTotal < 1000) {
-            estimatedSearchVolume = randomWebTotal * 2;
-          } else if (randomWebTotal < 10000) {
-            estimatedSearchVolume = 2000 + (randomWebTotal - 1000) * 0.5;
-          } else if (randomWebTotal < 100000) {
-            estimatedSearchVolume = 6500 + (randomWebTotal - 10000) * 0.1;
-          } else {
-            estimatedSearchVolume = 15500 + (randomWebTotal - 100000) * 0.05;
-          }
-          
-          estimatedSearchVolume = Math.max(10, Math.min(estimatedSearchVolume, 500000));
-          
-          const pcSearches = Math.floor(estimatedSearchVolume * 0.3);
-          const mobileSearches = Math.floor(estimatedSearchVolume * 0.7);
-          const total = pcSearches + mobileSearches;
-          
-          const randomBlogTotal = Math.floor(Math.random() * 5000) + 10;
-          
-          results.push({
-            keyword: keyword,
-            pc: pcSearches,
-            mobile: mobileSearches,
-            total: total,
-            monthBlog: randomBlogTotal,
-            blogSaturation: getBlogSaturation(randomBlogTotal),
-            shopCategory: '일반',
-            pcClick: Math.floor(pcSearches * 0.7),
-            mobileClick: Math.floor(mobileSearches * 0.6),
-            pcClickRate: `${Math.floor(70 + Math.random() * 20)}%`,
-            mobileClickRate: `${Math.floor(60 + Math.random() * 20)}%`,
-            competition: getCompetition(randomWebTotal),
-            avgAdCount: Math.min(20, Math.floor(randomWebTotal / 1000))
-          });
-        } else {
-          results.push({
-            keyword: keyword,
-            error: '처리 중 오류가 발생했습니다: ' + error.message
-          });
-        }
+        // API 호출 실패 시 오류 메시지 반환
+        results.push({
+          keyword: keyword,
+          error: `API 호출에 실패했습니다: ${error.message}`
+        });
       }
     }
 
