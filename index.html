@@ -264,6 +264,8 @@
     $(document).ready(function() {
       // 조회하기 버튼 클릭 이벤트
       $("#SDsave").click(function() {
+        console.log("조회하기 버튼 클릭됨");
+        
         // 입력값 검증
         var txtBox = document.getElementById("DataQ1");
         var lines = txtBox.value.split("\n");
@@ -301,62 +303,93 @@
           return;
         }
 
+        console.log("키워드 목록:", keywords);
+        
         // 로딩 메시지 표시
         $(".loding_pop_msg").show();
-
-        // API 호출
-        fetch('/.netlify/functions/keywordSearch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ keywords: keywords })
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .then(data => {
-          $(".loding_pop_msg").hide();
-          
-          if (data.status === 'success' && data.results) {
-            // 기존 결과 제거
+        
+        // 각 키워드에 대해 직접 API 호출
+        const promises = keywords.map(keyword => {
+          return new Promise((resolve, reject) => {
+            const currentTime = new Date().getTime();
+            $.ajax({
+              url: "https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello",
+              method: "GET",
+              dataType: "JSON",
+              data: {
+                'keyword': keyword,
+                'totalSum': '1000',
+                'time': currentTime
+              },
+              success: function(response) {
+                console.log(`키워드 ${keyword} 응답:`, response);
+                resolve({
+                  keyword: keyword,
+                  data: response
+                });
+              },
+              error: function(error) {
+                console.error(`키워드 ${keyword} 오류:`, error);
+                reject(error);
+              }
+            });
+          });
+        });
+        
+        // 모든 API 호출이 완료되면 결과 처리
+        Promise.all(promises.map(p => p.catch(e => e)))
+          .then(results => {
+            $(".loding_pop_msg").hide();
             $(".sch_tbody").empty();
             
-            data.results.forEach(function(item) {
-              if (item.error) {
+            results.forEach(result => {
+              if (result instanceof Error) {
+                // 오류 처리
                 const errorTR = `<tr>
                   <td colspan="15" class="text-center text-red-500">
-                    ${item.keyword}: ${item.error}
+                    오류가 발생했습니다: ${result.message}
                   </td>
                 </tr>`;
                 $('.sch_tbody').append(errorTR);
               } else {
-                const pushTR = `<tr data-relkeyword="${item.keyword}" data-totalsum="${item.total}">
-                  <td><input type="checkbox" name="data_check[]" value="${item.keyword}"></td>
-                  <td class="number"></td>
-                  <td style="text-align:center">
-                    <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(item.keyword)}" target="_blank">
-                      ${item.keyword}
-                    </a>
-                  </td>
-                  <td style="text-align:right">${comma(item.pc)}</td>
-                  <td style="text-align:right">${comma(item.mobile)}</td>
-                  <td style="text-align:right">${comma(item.total)}</td>
-                  <td style="text-align:right">${comma(item.monthBlog)}</td>
-                  <td style="text-align:center">${item.blogSaturation}</td>
-                  <td style="text-align:center">${item.shopCategory}</td>
-                  <td style="text-align:right">${comma(item.pcClick)}</td>
-                  <td style="text-align:right">${comma(item.mobileClick)}</td>
-                  <td style="text-align:right">${item.pcClickRate}</td>
-                  <td style="text-align:center">${item.mobileClickRate}</td>
-                  <td style="text-align:center">${item.competition}</td>
-                  <td style="text-align:right">${comma(item.avgAdCount)}</td>
-                </tr>`;
-                
-                $('.sch_tbody').append(pushTR);
+                // 성공 처리
+                const data = result.data;
+                if (data && data.status) {
+                  const pcSearches = data.result?.pcSearches || 0;
+                  const mobileSearches = data.result?.mobileSearches || 0;
+                  const total = parseInt(pcSearches) + parseInt(mobileSearches);
+                  
+                  const pushTR = `<tr data-relkeyword="${result.keyword}" data-totalsum="${total}">
+                    <td><input type="checkbox" name="data_check[]" value="${result.keyword}"></td>
+                    <td class="number"></td>
+                    <td style="text-align:center">
+                      <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(result.keyword)}" target="_blank">
+                        ${result.keyword}
+                      </a>
+                    </td>
+                    <td style="text-align:right">${comma(pcSearches)}</td>
+                    <td style="text-align:right">${comma(mobileSearches)}</td>
+                    <td style="text-align:right">${comma(total)}</td>
+                    <td style="text-align:right">${comma(data.result?.monthlyBlogPosts || 0)}</td>
+                    <td style="text-align:center">${data.result?.blogSaturation || '-'}</td>
+                    <td style="text-align:center">${data.result?.shopCategory || '-'}</td>
+                    <td style="text-align:right">${comma(data.result?.pcClicks || 0)}</td>
+                    <td style="text-align:right">${comma(data.result?.mobileClicks || 0)}</td>
+                    <td style="text-align:right">${data.result?.pcClickRate || '0%'}</td>
+                    <td style="text-align:center">${data.result?.mobileClickRate || '0%'}</td>
+                    <td style="text-align:center">${data.result?.competition || '-'}</td>
+                    <td style="text-align:right">${comma(data.result?.avgAdExposure || 0)}</td>
+                  </tr>`;
+                  
+                  $('.sch_tbody').append(pushTR);
+                } else {
+                  const errorTR = `<tr>
+                    <td colspan="15" class="text-center text-red-500">
+                      ${result.keyword}: 데이터를 가져올 수 없습니다.
+                    </td>
+                  </tr>`;
+                  $('.sch_tbody').append(errorTR);
+                }
               }
             });
             
@@ -364,15 +397,12 @@
             numbering();
             // 입력창 비우기
             $("#DataQ1").val('');
-          } else {
-            alert(data.message || "오류가 발생했습니다.");
-          }
-        })
-        .catch(error => {
-          $(".loding_pop_msg").hide();
-          console.error('Error:', error);
-          alert("오류가 발생했습니다: " + error.message);
-        });
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            $(".loding_pop_msg").hide();
+            alert("오류가 발생했습니다: " + error.message);
+          });
       });
 
       // 숫자에 콤마 추가하는 함수

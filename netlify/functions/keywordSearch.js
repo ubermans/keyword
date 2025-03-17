@@ -52,38 +52,82 @@ exports.handler = async function(event, context) {
     for (const keyword of keywords) {
       try {
         const currentTime = new Date().getTime();
-        const response = await fetch(
-          `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
+        const apiUrl = `https://uy3w6h3mzi.execute-api.ap-northeast-2.amazonaws.com/Prod/hello?keyword=${encodeURIComponent(keyword)}&time=${currentTime}`;
+        
+        console.log(`API 호출: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
           }
-        );
+        });
 
         if (!response.ok) {
           throw new Error(`API 요청 실패: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log(`API 응답: ${JSON.stringify(data)}`);
         
-        if (data && data.status) {
+        // API 응답 구조 확인
+        if (data) {
+          // 응답 구조에 따라 데이터 추출
+          let pcSearches = 0;
+          let mobileSearches = 0;
+          let monthlyBlogPosts = 0;
+          let blogSaturation = '-';
+          let shopCategory = '-';
+          let pcClicks = 0;
+          let mobileClicks = 0;
+          let pcClickRate = '0%';
+          let mobileClickRate = '0%';
+          let competition = '-';
+          let avgAdExposure = 0;
+          
+          // 응답 구조에 따라 데이터 추출 로직
+          if (data.result) {
+            pcSearches = data.result.pcSearches || 0;
+            mobileSearches = data.result.mobileSearches || 0;
+            monthlyBlogPosts = data.result.monthlyBlogPosts || 0;
+            blogSaturation = data.result.blogSaturation || '-';
+            shopCategory = data.result.shopCategory || '-';
+            pcClicks = data.result.pcClicks || 0;
+            mobileClicks = data.result.mobileClicks || 0;
+            pcClickRate = data.result.pcClickRate || '0%';
+            mobileClickRate = data.result.mobileClickRate || '0%';
+            competition = data.result.competition || '-';
+            avgAdExposure = data.result.avgAdExposure || 0;
+          } else if (data.data) {
+            // 다른 가능한 응답 구조
+            pcSearches = data.data.pcSearches || 0;
+            mobileSearches = data.data.mobileSearches || 0;
+            monthlyBlogPosts = data.data.monthlyBlogPosts || 0;
+            blogSaturation = data.data.blogSaturation || '-';
+            shopCategory = data.data.shopCategory || '-';
+            pcClicks = data.data.pcClicks || 0;
+            mobileClicks = data.data.mobileClicks || 0;
+            pcClickRate = data.data.pcClickRate || '0%';
+            mobileClickRate = data.data.mobileClickRate || '0%';
+            competition = data.data.competition || '-';
+            avgAdExposure = data.data.avgAdExposure || 0;
+          }
+          
           results.push({
             keyword: keyword,
-            pc: data.result?.pcSearches || 0,
-            mobile: data.result?.mobileSearches || 0,
-            total: (parseInt(data.result?.pcSearches || 0) + parseInt(data.result?.mobileSearches || 0)),
-            monthBlog: data.result?.monthlyBlogPosts || 0,
-            blogSaturation: data.result?.blogSaturation || '-',
-            shopCategory: data.result?.shopCategory || '-',
-            pcClick: data.result?.pcClicks || 0,
-            mobileClick: data.result?.mobileClicks || 0,
-            pcClickRate: data.result?.pcClickRate || '0%',
-            mobileClickRate: data.result?.mobileClickRate || '0%',
-            competition: data.result?.competition || '-',
-            avgAdCount: data.result?.avgAdExposure || 0
+            pc: pcSearches,
+            mobile: mobileSearches,
+            total: (parseInt(pcSearches) + parseInt(mobileSearches)),
+            monthBlog: monthlyBlogPosts,
+            blogSaturation: blogSaturation,
+            shopCategory: shopCategory,
+            pcClick: pcClicks,
+            mobileClick: mobileClicks,
+            pcClickRate: pcClickRate,
+            mobileClickRate: mobileClickRate,
+            competition: competition,
+            avgAdCount: avgAdExposure
           });
         } else {
           results.push({
@@ -98,7 +142,7 @@ exports.handler = async function(event, context) {
         console.error(`Error for keyword ${keyword}:`, error);
         results.push({
           keyword: keyword,
-          error: '처리 중 오류가 발생했습니다.'
+          error: '처리 중 오류가 발생했습니다: ' + error.message
         });
       }
     }
@@ -118,7 +162,7 @@ exports.handler = async function(event, context) {
       headers,
       body: JSON.stringify({
         status: 'error',
-        message: '서버 오류가 발생했습니다.'
+        message: '서버 오류가 발생했습니다: ' + error.message
       })
     };
   }
