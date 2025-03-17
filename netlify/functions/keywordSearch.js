@@ -103,15 +103,34 @@ exports.handler = async function(event, context) {
         const webTotal = webData.total || 0;
         const blogTotal = blogData.total || 0;
         
+        // 검색량 계산 개선 - 네이버 검색 결과 수를 기반으로 더 현실적인 검색량 추정
+        // 검색 결과가 많을수록 실제 검색량도 많을 가능성이 높지만, 선형적이지 않음
+        let estimatedSearchVolume = 0;
+        
+        if (webTotal < 1000) {
+          estimatedSearchVolume = webTotal * 2; // 검색 결과가 적으면 검색량도 적음
+        } else if (webTotal < 10000) {
+          estimatedSearchVolume = 2000 + (webTotal - 1000) * 0.5; // 중간 범위
+        } else if (webTotal < 100000) {
+          estimatedSearchVolume = 6500 + (webTotal - 10000) * 0.1; // 높은 범위
+        } else if (webTotal < 1000000) {
+          estimatedSearchVolume = 15500 + (webTotal - 100000) * 0.05; // 매우 높은 범위
+        } else {
+          estimatedSearchVolume = 60500 + (webTotal - 1000000) * 0.01; // 극도로 높은 범위
+        }
+        
+        // 검색량이 너무 낮거나 높지 않도록 조정
+        estimatedSearchVolume = Math.max(10, Math.min(estimatedSearchVolume, 500000));
+        
         // PC와 모바일 검색량 비율 추정 (실제 데이터는 아니지만 합리적인 추정)
         const pcRatio = 0.3; // PC 검색 비율 (30%)
         const mobileRatio = 0.7; // 모바일 검색 비율 (70%)
         
-        const pcSearches = Math.floor(webTotal * pcRatio);
-        const mobileSearches = Math.floor(webTotal * mobileRatio);
+        const pcSearches = Math.floor(estimatedSearchVolume * pcRatio);
+        const mobileSearches = Math.floor(estimatedSearchVolume * mobileRatio);
         const total = pcSearches + mobileSearches;
         
-        console.log(`키워드 "${keyword}" 검색량 - PC: ${pcSearches}, Mobile: ${mobileSearches}, 합계: ${total}`);
+        console.log(`키워드 "${keyword}" 검색량 - PC: ${pcSearches}, Mobile: ${mobileSearches}, 합계: ${total} (웹 검색 결과 수: ${webTotal})`);
         
         // 검색량 데이터 생성
         results.push({
@@ -140,25 +159,45 @@ exports.handler = async function(event, context) {
         if (error.message.includes('네이버 API 요청 실패')) {
           console.log(`네이버 API 호출에 실패했습니다. 대체 데이터를 생성합니다.`);
           
-          // 대체 데이터 생성
-          const pcSearches = Math.floor(Math.random() * 5000) + 500;
-          const mobileSearches = Math.floor(Math.random() * 10000) + 1000;
+          // 대체 데이터 생성 - 더 현실적인 값으로 수정
+          // 검색 결과 수 범위를 무작위로 생성
+          const randomWebTotal = Math.floor(Math.random() * 100000) + 100;
+          
+          // 검색량 계산 (위의 계산 방식과 동일)
+          let estimatedSearchVolume = 0;
+          
+          if (randomWebTotal < 1000) {
+            estimatedSearchVolume = randomWebTotal * 2;
+          } else if (randomWebTotal < 10000) {
+            estimatedSearchVolume = 2000 + (randomWebTotal - 1000) * 0.5;
+          } else if (randomWebTotal < 100000) {
+            estimatedSearchVolume = 6500 + (randomWebTotal - 10000) * 0.1;
+          } else {
+            estimatedSearchVolume = 15500 + (randomWebTotal - 100000) * 0.05;
+          }
+          
+          estimatedSearchVolume = Math.max(10, Math.min(estimatedSearchVolume, 500000));
+          
+          const pcSearches = Math.floor(estimatedSearchVolume * 0.3);
+          const mobileSearches = Math.floor(estimatedSearchVolume * 0.7);
           const total = pcSearches + mobileSearches;
+          
+          const randomBlogTotal = Math.floor(Math.random() * 5000) + 10;
           
           results.push({
             keyword: keyword,
             pc: pcSearches,
             mobile: mobileSearches,
             total: total,
-            monthBlog: Math.floor(Math.random() * 1000) + 50,
-            blogSaturation: ['낮음', '보통', '높음'][Math.floor(Math.random() * 3)],
+            monthBlog: randomBlogTotal,
+            blogSaturation: getBlogSaturation(randomBlogTotal),
             shopCategory: '일반',
             pcClick: Math.floor(pcSearches * 0.7),
             mobileClick: Math.floor(mobileSearches * 0.6),
-            pcClickRate: `${Math.floor(Math.random() * 30) + 40}%`,
-            mobileClickRate: `${Math.floor(Math.random() * 30) + 30}%`,
-            competition: ['낮음', '보통', '높음', '매우 높음'][Math.floor(Math.random() * 4)],
-            avgAdCount: Math.floor(Math.random() * 20) + 1
+            pcClickRate: `${Math.floor(70 + Math.random() * 20)}%`,
+            mobileClickRate: `${Math.floor(60 + Math.random() * 20)}%`,
+            competition: getCompetition(randomWebTotal),
+            avgAdCount: Math.min(20, Math.floor(randomWebTotal / 1000))
           });
         } else {
           results.push({
@@ -192,15 +231,18 @@ exports.handler = async function(event, context) {
 
 // 블로그 포화도 계산 함수
 function getBlogSaturation(blogCount) {
-  if (blogCount < 1000) return '낮음';
+  if (blogCount < 500) return '매우 낮음';
+  if (blogCount < 2000) return '낮음';
   if (blogCount < 10000) return '보통';
-  return '높음';
+  if (blogCount < 50000) return '높음';
+  return '매우 높음';
 }
 
 // 경쟁 정도 계산 함수
 function getCompetition(webTotal) {
-  if (webTotal < 10000) return '낮음';
+  if (webTotal < 5000) return '매우 낮음';
+  if (webTotal < 20000) return '낮음';
   if (webTotal < 100000) return '보통';
-  if (webTotal < 1000000) return '높음';
+  if (webTotal < 500000) return '높음';
   return '매우 높음';
 } 
