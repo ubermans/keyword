@@ -1,0 +1,104 @@
+/* 전체 스타일 */
+body {
+    background-color: #f8f9fa;
+    color: #343a40;
+}
+
+/* 카드 스타일 */
+.card {
+    border-top: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+}
+
+/* 네비게이션 탭 스타일 */
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    color: #007bff;
+    font-weight: 600;
+}
+
+/* 버튼 스타일 */
+.btn-primary {
+    background-color: #03c75a;
+    border-color: #03c75a;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: #02b350;
+    border-color: #02b350;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+/* 테이블 스타일 */
+.table th {
+    background-color: #f1f3f5;
+    font-weight: 600;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .lead {
+        font-size: 1rem;
+    }
+}
+
+/* 로딩 인디케이터 */
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #03c75a;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 결과 영역 스타일 */
+#results {
+    transition: opacity 0.3s ease;
+}
+
+#results.loading {
+    opacity: 0.5;
+}
+
+/* 하이라이트 스타일 */
+.highlight-row {
+    background-color: rgba(3, 199, 90, 0.1);
+}
+
+/* 경쟁 강도 표시 */
+.competition-low {
+    color: #28a745;
+}
+
+.competition-medium {
+    color: #ffc107;
+}
+
+.competition-high {
+    color: #dc3545;
+} 
