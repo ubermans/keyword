@@ -10,7 +10,8 @@ exports.handler = async function(event, context) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json'
   };
   
   // OPTIONS 요청 처리 (CORS 프리플라이트)
@@ -32,61 +33,137 @@ exports.handler = async function(event, context) {
   }
   
   try {
+    console.log('Related keyword request received:', event.body);
+    
     // 요청 바디 파싱
     const body = JSON.parse(event.body);
     const { keyword } = body;
     
+    console.log('Keyword received:', keyword);
+    
     // 요청 데이터 유효성 검사
-    if (!keyword || typeof keyword !== 'string') {
+    if (!keyword || typeof keyword !== 'string' || keyword.trim() === '') {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: '유효한 키워드를 입력해주세요.' })
       };
     }
-    
-    // 실제 API 호출 시에는 아래 주석을 해제하고 사용
-    /*
-    // 네이버 API 요청
-    const response = await axios.post(NAVER_API_URL, {
-      hintKeywords: [keyword],
-      showDetail: 1
-    }, {
-      headers: {
-        'X-Naver-Client-Id': NAVER_API_KEY,
-        'X-Naver-Client-Secret': NAVER_API_SECRET,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    // 응답 처리
-    const apiData = response.data;
-    // 연관 키워드 추출 및 처리 로직 구현 필요
-    */
-    
-    // 예시 연관 키워드 데이터 생성 (실제 구현 시에는 위 주석 코드 사용)
-    const relatedKeywords = [];
-    const baseKeywords = [
-      '방법', '추천', '리뷰', '가격', '비교', '후기', 
-      '종류', '사용법', '효과', '구매', '무료', '최저가'
-    ];
-    
-    for (const suffix of baseKeywords) {
-      relatedKeywords.push({
-        relKeyword: `${keyword} ${suffix}`,
-        pcMonthlyQcCnt: Math.floor(Math.random() * 5000),
-        mobileMonthlyQcCnt: Math.floor(Math.random() * 10000),
-        totalMonthlyQcCnt: Math.floor(Math.random() * 15000),
-        competitionIndex: (Math.random() * 0.9 + 0.1).toFixed(2),
-        compIdx: ['낮음', '보통', '높음'][Math.floor(Math.random() * 3)]
+
+    try {
+      console.log('Sending related keyword request to ma-pia.net');
+      
+      // 마피아넷 API 요청 파라미터
+      const params = new URLSearchParams();
+      params.append('keyword', keyword.trim());
+      
+      // 마피아넷 연관키워드 API 요청
+      const response = await axios({
+        method: 'post',
+        url: 'https://www.ma-pia.net/keyword/recom.php',
+        data: params,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Origin': 'https://www.ma-pia.net',
+          'Referer': 'https://www.ma-pia.net/keyword/recom.php'
+        }
       });
+      
+      console.log('Related keyword response received');
+      
+      // 응답 데이터 파싱
+      const html = response.data;
+      
+      // 디버깅을 위해 HTML 응답의 일부만 로깅
+      console.log('Response preview:', html.substring(0, 300));
+      
+      // HTML 파싱을 위한 정규식 패턴
+      const tablePattern = /<table[^>]*class="list_tbl"[^>]*>([\s\S]*?)<\/table>/i;
+      const tableMatch = html.match(tablePattern);
+      
+      if (!tableMatch) {
+        console.log('Table not found in response');
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ 
+            results: [], 
+            relKeyword: keyword,
+            debug: 'Table not found in HTML response'
+          })
+        };
+      }
+      
+      const tableHtml = tableMatch[0];
+      const rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+      const relatedKeywords = [];
+      let rowMatch;
+      
+      // 첫 번째 행(헤더)은 건너뛰기
+      let firstRow = true;
+      
+      while ((rowMatch = rowPattern.exec(tableHtml)) !== null) {
+        if (firstRow) {
+          firstRow = false;
+          continue;
+        }
+        
+        const cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        const cells = [];
+        let cellMatch;
+        
+        while ((cellMatch = cellPattern.exec(rowMatch[0])) !== null) {
+          cells.push(cellMatch[1].replace(/<[^>]*>/g, '').trim());
+        }
+        
+        if (cells.length >= 1) {
+          relatedKeywords.push(cells[0]);
+        }
+      }
+      
+      console.log(`Parsed ${relatedKeywords.length} related keywords`);
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          results: relatedKeywords.map(kw => ({ relKeyword: kw })),
+          relKeyword: keyword
+        })
+      };
+      
+    } catch (apiError) {
+      console.error('마피아넷 API 요청 오류:', apiError);
+      
+      // API 요청에 실패한 경우 더미 데이터 반환
+      console.log('Returning dummy related keyword data');
+      
+      // 예시 관련 키워드 생성
+      const dummyKeywords = [
+        `${keyword} 장점`,
+        `${keyword} 단점`,
+        `${keyword} 추천`,
+        `${keyword} 가격`,
+        `${keyword} 후기`,
+        `${keyword} 사용법`,
+        `${keyword} 비교`,
+        `${keyword} 판매처`
+      ];
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          results: dummyKeywords.map(kw => ({ relKeyword: kw })),
+          relKeyword: keyword,
+          usingDummyData: true,
+          error: apiError.message
+        })
+      };
     }
-    
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ results: relatedKeywords })
-    };
     
   } catch (error) {
     console.error('연관 키워드 검색 오류:', error);
@@ -94,7 +171,11 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: '서버 오류가 발생했습니다.' })
+      body: JSON.stringify({ 
+        error: '서버 오류가 발생했습니다.', 
+        message: error.message,
+        stack: error.stack
+      })
     };
   }
 }; 
