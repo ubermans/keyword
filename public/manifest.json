@@ -1,0 +1,15 @@
+{
+  "short_name": "키워드 검색",
+  "name": "네이버 키워드 검색량 조회 서비스",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4285F4",
+  "background_color": "#ffffff"
+} 
