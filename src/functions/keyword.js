@@ -1,5 +1,5 @@
-const axios = require('axios');
-const FormData = require('form-data');
+const chromium = require('chrome-aws-lambda');
+const puppeteer = require('puppeteer-core');
 
 // 네이버 API 접근 정보 (실제 운영 시에는 환경변수로 설정 필요)
 const NAVER_API_KEY = 'YOUR_NAVER_API_KEY'; 
@@ -33,6 +33,8 @@ exports.handler = async function(event, context) {
     };
   }
   
+  let browser = null;
+  
   try {
     console.log('Request received:', event.body);
     
@@ -64,92 +66,75 @@ exports.handler = async function(event, context) {
     console.log('Keyword string:', keywordString);
     
     try {
-      // 마피아넷 API 요청 
-      // FormData 대신 URLSearchParams 사용
-      const params = new URLSearchParams();
-      params.append('keyword', keywordString);
-      params.append('type', '1');
+      console.log('Launching browser');
       
-      console.log('Sending request to ma-pia.net');
-      
-      const response = await axios({
-        method: 'post',
-        url: 'https://www.ma-pia.net/keyword/keyword.php',
-        data: params,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Origin': 'https://www.ma-pia.net',
-          'Referer': 'https://www.ma-pia.net/keyword/keyword.php'
-        }
+      // 헤드리스 브라우저 시작
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath,
+        headless: chromium.headless,
       });
       
-      console.log('Response received');
+      // 새 페이지 열기
+      const page = await browser.newPage();
       
-      // 응답 데이터 파싱
-      const html = response.data;
+      // 사용자 에이전트 설정
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
       
-      // 디버깅을 위해 HTML 응답의 일부만 로깅
-      console.log('Response preview:', html.substring(0, 300));
+      // 마피아넷으로 이동
+      console.log('Navigating to ma-pia.net');
+      await page.goto('https://www.ma-pia.net/keyword/keyword.php', {
+        waitUntil: 'networkidle2',
+      });
       
-      // HTML 파싱을 위한 정규식 패턴
-      const tablePattern = /<table[^>]*class="list_tbl"[^>]*>([\s\S]*?)<\/table>/i;
-      const tableMatch = html.match(tablePattern);
+      // 키워드 입력
+      console.log('Typing keywords');
+      await page.type('textarea[name="keyword"]', keywordString);
       
-      if (!tableMatch) {
-        console.log('Table not found in response');
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ results: [], debug: 'Table not found in HTML response' })
-        };
-      }
+      // 폼 제출
+      console.log('Submitting form');
+      await Promise.all([
+        page.click('input[type="submit"]'),
+        page.waitForNavigation({ waitUntil: 'networkidle2' }),
+      ]);
       
-      const tableHtml = tableMatch[0];
-      const rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-      const rows = [];
-      let rowMatch;
+      // 결과 추출
+      console.log('Extracting results');
+      const results = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('table.list_tbl tr')).slice(1); // 헤더 제외
+        return rows.map(row => {
+          const cells = Array.from(row.querySelectorAll('td'));
+          return {
+            keyword: cells[0]?.textContent.trim() || '',
+            pcMonthlyQcCnt: parseInt(cells[1]?.textContent.replace(/,/g, '')) || 0,
+            mobileMonthlyQcCnt: parseInt(cells[2]?.textContent.replace(/,/g, '')) || 0,
+            totalMonthlyQcCnt: parseInt(cells[3]?.textContent.replace(/,/g, '')) || 0,
+            competitionIndex: parseFloat(cells[4]?.textContent) || 0,
+            compIdx: cells[5]?.textContent.trim() || ''
+          };
+        });
+      });
       
-      // 첫 번째 행(헤더)은 건너뛰기
-      let firstRow = true;
+      console.log(`Extracted ${results.length} results`);
       
-      while ((rowMatch = rowPattern.exec(tableHtml)) !== null) {
-        if (firstRow) {
-          firstRow = false;
-          continue;
-        }
-        
-        const cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-        const cells = [];
-        let cellMatch;
-        
-        while ((cellMatch = cellPattern.exec(rowMatch[0])) !== null) {
-          cells.push(cellMatch[1].replace(/<[^>]*>/g, '').trim());
-        }
-        
-        if (cells.length >= 6) {
-          rows.push({
-            keyword: cells[0],
-            pcMonthlyQcCnt: parseInt(cells[1].replace(/,/g, '')) || 0,
-            mobileMonthlyQcCnt: parseInt(cells[2].replace(/,/g, '')) || 0,
-            totalMonthlyQcCnt: parseInt(cells[3].replace(/,/g, '')) || 0,
-            competitionIndex: parseFloat(cells[4]) || 0,
-            compIdx: cells[5]
-          });
-        }
-      }
-      
-      console.log(`Parsed ${rows.length} results`);
+      // 브라우저 닫기
+      await browser.close();
+      browser = null;
       
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ results: rows })
+        body: JSON.stringify({ results })
       };
     } catch (apiError) {
-      console.error('마피아넷 API 요청 오류:', apiError);
+      console.error('마피아넷 크롤링 오류:', apiError);
+      
+      // 브라우저가 열려있으면 닫기
+      if (browser !== null) {
+        await browser.close();
+        browser = null;
+      }
       
       // API 요청에 실패한 경우 더미 데이터 반환
       console.log('Returning dummy data instead');
@@ -175,6 +160,11 @@ exports.handler = async function(event, context) {
     
   } catch (error) {
     console.error('키워드 검색 오류:', error);
+    
+    // 브라우저가 열려있으면 닫기
+    if (browser !== null) {
+      await browser.close();
+    }
     
     return {
       statusCode: 500,

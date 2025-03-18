@@ -8,4 +8,12 @@
   status = 200
 
 [functions]
-  directory = "src/functions" 
+  directory = "src/functions"
+  included_files = ["node_modules/chrome-aws-lambda/**"]
+  node_bundler = "esbuild"
+
+[functions.keyword]
+  timeout = 30
+
+[functions.related-keywords]
+  timeout = 30 
