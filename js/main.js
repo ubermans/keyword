@@ -11,13 +11,9 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const alertContainer = document.getElementById('alertContainer');
 const downloadBtn = document.getElementById('downloadBtn');
 const fullCheckbox = document.getElementById('fullCheck');
-const detailPopup = document.getElementById('detailPopup');
-const popupClose = document.getElementById('popupClose');
-const chartContainer = document.getElementById('chartContainer');
 
 // 전역 변수
 let searchResults = [];
-let chartInstance = null;
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,11 +40,6 @@ function initEventListeners() {
   // 다운로드 버튼
   if (downloadBtn) {
     downloadBtn.addEventListener('click', downloadResults);
-  }
-  
-  // 팝업 닫기 버튼
-  if (popupClose) {
-    popupClose.addEventListener('click', closeDetailPopup);
   }
 }
 
@@ -212,17 +203,6 @@ function displayResults(results) {
       <td style="text-align:right">${formatNumber(result.pcSearchVolume)}</td>
       <td style="text-align:right">${formatNumber(result.mobileSearchVolume)}</td>
       <td style="text-align:right">${formatNumber(result.totalSearchVolume)}</td>
-      <td class="monthBlog" style="text-align:right">${formatNumber(result.monthlyBlogRate)}</td>
-      <td class="blogSaturation" style="text-align:center">${result.blogSaturation}</td>
-      <td class="shopCategory" style="text-align:center">${result.shopCategory}</td>
-      <td style="text-align:right">${formatNumber(result.webTotal)}</td>
-      <td style="text-align:right">${formatNumber(result.blogTotal)}</td>
-      <td style="text-align:center">${result.competition}</td>
-      <td style="text-align:center">${result.commercial}</td>
-      <td style="text-align:center">${result.clickRate}</td>
-      <td style="text-align:center">
-        <button type="button" class="btn-detail" onclick="showDetailPopup('${result.keyword}', ${result.pcSearchVolume}, ${result.mobileSearchVolume})">상세</button>
-      </td>
     `;
     
     resultBody.appendChild(row);
@@ -233,7 +213,7 @@ function displayResults(results) {
 function showEmptyResultMessage() {
   resultBody.innerHTML = `
     <tr class="null_tr">
-      <td colspan="15" class="null_td">키워드를 조회하십시오.</td>
+      <td colspan="6" class="null_td">키워드를 조회하십시오.</td>
     </tr>
   `;
 }
@@ -294,10 +274,10 @@ function downloadResults() {
   const selectedResults = searchResults.filter(result => selectedKeywords.includes(result.keyword));
   
   // CSV 데이터 생성
-  let csvContent = '키워드,PC 검색량,모바일 검색량,총 검색량,월간 블로그 발행량,블로그 포화도,쇼핑 카테고리,웹 검색 결과,블로그 검색 결과,경쟁강도,상업성,클릭률\n';
+  let csvContent = '키워드,PC 검색량,모바일 검색량,총 검색량\n';
   
   selectedResults.forEach(result => {
-    csvContent += `"${result.keyword}",${result.pcSearchVolume},${result.mobileSearchVolume},${result.totalSearchVolume},${result.monthlyBlogRate},"${result.blogSaturation}","${result.shopCategory}",${result.webTotal},${result.blogTotal},"${result.competition}","${result.commercial}","${result.clickRate}"\n`;
+    csvContent += `"${result.keyword}",${result.pcSearchVolume},${result.mobileSearchVolume},${result.totalSearchVolume}\n`;
   });
   
   // 다운로드 링크 생성
@@ -313,112 +293,5 @@ function downloadResults() {
   document.body.removeChild(link);
 }
 
-// 상세 정보 팝업 표시
-function showDetailPopup(keyword, pcVolume, mobileVolume) {
-  const totalVolume = pcVolume + mobileVolume;
-  
-  // 팝업 제목 설정
-  document.getElementById('popupTitle').textContent = `키워드: ${keyword}`;
-  
-  // 검색량 데이터 표시
-  document.getElementById('pcVolume').textContent = formatNumber(pcVolume);
-  document.getElementById('mobileVolume').textContent = formatNumber(mobileVolume);
-  document.getElementById('totalVolume').textContent = formatNumber(totalVolume);
-  
-  // 차트 생성
-  createChart(keyword, pcVolume, mobileVolume);
-  
-  // 팝업 표시
-  detailPopup.style.display = 'flex';
-}
-
-// 팝업 닫기
-function closeDetailPopup() {
-  detailPopup.style.display = 'none';
-  
-  // 차트 인스턴스 정리
-  if (chartInstance) {
-    chartInstance.destroy();
-    chartInstance = null;
-  }
-}
-
-// 차트 생성
-function createChart(keyword, pcVolume, mobileVolume) {
-  const ctx = document.getElementById('volumeChart').getContext('2d');
-  
-  // 기존 차트 정리
-  if (chartInstance) {
-    chartInstance.destroy();
-  }
-  
-  // 월별 데이터 생성 (예시 데이터)
-  const months = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
-  const pcData = [];
-  const mobileData = [];
-  
-  // 랜덤 변동을 주어 월별 데이터 생성 (실제로는 API에서 받아와야 함)
-  for (let i = 0; i < 12; i++) {
-    const randomFactor = 0.8 + Math.random() * 0.4; // 0.8 ~ 1.2 사이의 랜덤 값
-    pcData.push(Math.round(pcVolume * randomFactor));
-    mobileData.push(Math.round(mobileVolume * randomFactor));
-  }
-  
-  // 차트 생성
-  chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [
-        {
-          label: 'PC 검색량',
-          data: pcData,
-          borderColor: '#4285f4',
-          backgroundColor: 'rgba(66, 133, 244, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4
-        },
-        {
-          label: '모바일 검색량',
-          data: mobileData,
-          borderColor: '#34a853',
-          backgroundColor: 'rgba(52, 168, 83, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: `${keyword} - 월별 검색량 추이 (예상)`
-        },
-        tooltip: {
-          mode: 'index',
-          intersect: false
-        },
-        legend: {
-          position: 'top'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: function(value) {
-              return formatNumber(value);
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
 // 전역 함수로 노출 (HTML에서 직접 호출하기 위함)
-window.showDetailPopup = showDetailPopup; 
+window.showDetailPopup = null; 
