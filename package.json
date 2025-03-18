@@ -1,11 +1,12 @@
 {
-  "name": "keyword-search-volume",
+  "name": "naver-keyword-search",
   "version": "1.0.0",
   "description": "네이버 키워드 검색량 조회 서비스",
-  "main": "index.js",
+  "main": "js/main.js",
   "scripts": {
+    "start": "netlify dev",
     "dev": "netlify dev",
-    "build": "echo \"No build step required\""
+    "build": "netlify build"
   },
   "dependencies": {
     "node-fetch": "^2.6.9"
@@ -13,12 +14,15 @@
   "devDependencies": {
     "netlify-cli": "^15.0.0"
   },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "private": true,
   "keywords": [
-    "keyword",
-    "search",
-    "volume",
     "naver",
-    "api"
+    "search",
+    "keyword",
+    "analytics"
   ],
   "author": "",
   "license": "MIT"

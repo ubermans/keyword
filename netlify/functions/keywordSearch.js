@@ -225,39 +225,52 @@ exports.handler = async (event, context) => {
     for (const keyword of keywords) {
       console.log(`키워드 검색 시작: ${keyword}`);
       
-      // 검색 API 호출
-      const [webPC, blogPC, newsPC, cafePC, webMobile, blogMobile, newsMobile, cafeMobile] = await Promise.all([
-        naverSearch(keyword, 'web', 'pc'),
-        naverSearch(keyword, 'blog', 'pc'),
-        naverSearch(keyword, 'news', 'pc'),
-        naverSearch(keyword, 'cafearticle', 'pc'),
-        naverSearch(keyword, 'web', 'mobile'),
-        naverSearch(keyword, 'blog', 'mobile'),
-        naverSearch(keyword, 'news', 'mobile'),
-        naverSearch(keyword, 'cafearticle', 'mobile')
-      ]);
-      
-      // PC 및 모바일 검색량 계산 (금일 제외 최근 한달)
-      const pcSearchVolume = calculateSearchVolume(
-        webPC.total, blogPC.total, newsPC.total, cafePC.total
-      );
-      
-      const mobileSearchVolume = calculateSearchVolume(
-        webMobile.total, blogMobile.total, newsMobile.total, cafeMobile.total
-      );
-      
-      // 총 검색량
-      const totalSearchVolume = pcSearchVolume + mobileSearchVolume;
-      
-      // 결과 저장
-      results.push({
-        keyword,
-        pcSearchVolume,
-        mobileSearchVolume,
-        totalSearchVolume
-      });
-      
-      console.log(`키워드 검색 완료: ${keyword}, PC: ${pcSearchVolume}, Mobile: ${mobileSearchVolume}, Total: ${totalSearchVolume}`);
+      try {
+        // 검색 API 호출
+        const [webPC, blogPC, newsPC, cafePC, webMobile, blogMobile, newsMobile, cafeMobile] = await Promise.all([
+          naverSearch(keyword, 'web', 'pc'),
+          naverSearch(keyword, 'blog', 'pc'),
+          naverSearch(keyword, 'news', 'pc'),
+          naverSearch(keyword, 'cafearticle', 'pc'),
+          naverSearch(keyword, 'web', 'mobile'),
+          naverSearch(keyword, 'blog', 'mobile'),
+          naverSearch(keyword, 'news', 'mobile'),
+          naverSearch(keyword, 'cafearticle', 'mobile')
+        ]);
+        
+        // PC 및 모바일 검색량 계산 (금일 제외 최근 한달)
+        const pcSearchVolume = calculateSearchVolume(
+          webPC.total, blogPC.total, newsPC.total, cafePC.total
+        );
+        
+        const mobileSearchVolume = calculateSearchVolume(
+          webMobile.total, blogMobile.total, newsMobile.total, cafeMobile.total
+        );
+        
+        // 총 검색량
+        const totalSearchVolume = pcSearchVolume + mobileSearchVolume;
+        
+        // 결과 저장
+        results.push({
+          keyword,
+          pcSearchVolume,
+          mobileSearchVolume,
+          totalSearchVolume
+        });
+        
+        console.log(`키워드 검색 완료: ${keyword}, PC: ${pcSearchVolume}, Mobile: ${mobileSearchVolume}, Total: ${totalSearchVolume}`);
+      } catch (error) {
+        console.error(`키워드 '${keyword}' 검색 실패:`, error.message);
+        
+        // 오류가 발생해도 다른 키워드는 계속 처리하도록 빈 결과 추가
+        results.push({
+          keyword,
+          pcSearchVolume: 0,
+          mobileSearchVolume: 0,
+          totalSearchVolume: 0,
+          error: error.message
+        });
+      }
       
       // API 호출 간 지연 (네이버 API 제한 고려)
       if (keywords.length > 1) {
