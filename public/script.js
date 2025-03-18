@@ -12,8 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 현재 결과 데이터 (CSV 다운로드용)
     let currentResultData = null;
     
-    // API 엔드포인트 (실제 API로 변경 필요)
-    const API_BASE_URL = '/api';
+    // API 엔드포인트 (Netlify Functions 주소)
+    const API_BASE_URL = '/.netlify/functions';
     
     // 키워드 검색 폼 제출 이벤트
     keywordForm.addEventListener('submit', async (e) => {
